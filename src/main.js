@@ -71,7 +71,7 @@ document.querySelector('#resetButton').addEventListener('click', () => resetGame
 document.querySelector('#flipButton').addEventListener('click', () => {
   boardFlipped = !boardFlipped;
   updateBoardOrientation();
-  syncPieces(true);
+  relayoutPieces(true);
 });
 
 const chess = new Chess();
@@ -129,12 +129,10 @@ const squareSize = 1;
 const half = boardSize / 2;
 const squareMeshes = new Map();
 const pieceMeshes = new Map();
-const livePieceEntries = [];
 const legalTargets = new Set();
 const captureState = { w: [], b: [] };
 let boardFlipped = false;
 let selectedSquare = null;
-let highlightedMesh = null;
 let lastMoveSquares = [];
 
 const squareGeometry = new THREE.BoxGeometry(squareSize, 0.22, squareSize);
@@ -280,67 +278,95 @@ function createPieceMesh(pieceCode) {
   });
 
   const group = new THREE.Group();
-  const lowerRadius = pieceCode[1] === 'p' ? 0.27 : 0.33;
-  const bodyHeight = pieceCode[1] === 'p' ? 0.72 : pieceCode[1] === 'q' ? 1.22 : pieceCode[1] === 'k' ? 1.3 : 1.04;
-  const topRadius = pieceCode[1] === 'n' ? 0.2 : 0.25;
-  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 0.22, 36), glassMaterial);
+  const type = pieceCode[1];
+  const lowerRadius = type === 'p' ? 0.22 : type === 'n' ? 0.28 : type === 'r' ? 0.34 : 0.31;
+  const bodyHeight = type === 'p' ? 0.66 : type === 'q' ? 1.36 : type === 'k' ? 1.48 : type === 'n' ? 0.9 : 1.06;
+  const topRadius = type === 'p' ? 0.14 : type === 'r' ? 0.28 : type === 'b' ? 0.17 : type === 'n' ? 0.16 : 0.2;
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.52, 0.2, 36), glassMaterial);
   const body = new THREE.Mesh(new THREE.CylinderGeometry(topRadius, lowerRadius, bodyHeight, 42), glassMaterial);
   const collar = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.05, 14, 40), glassMaterial);
   const cap = new THREE.Mesh(
-    pieceCode[1] === 'p' ? new THREE.SphereGeometry(0.18, 28, 28) : new THREE.SphereGeometry(0.24, 28, 28),
+    type === 'p' ? new THREE.SphereGeometry(0.16, 28, 28) : new THREE.SphereGeometry(0.22, 28, 28),
     glassMaterial
   );
 
   base.position.y = 0.11;
   body.position.y = 0.22 + bodyHeight / 2;
   collar.rotation.x = Math.PI / 2;
-  collar.position.y = 0.28 + bodyHeight * 0.76;
-  cap.position.y = 0.28 + bodyHeight + (pieceCode[1] === 'p' ? 0.16 : 0.22);
+  collar.position.y = 0.28 + bodyHeight * (type === 'p' ? 0.58 : 0.76);
+  cap.position.y = 0.28 + bodyHeight + (type === 'p' ? 0.13 : 0.18);
 
   group.add(base, body, collar, cap);
 
-  if (pieceCode[1] === 'r') {
+  if (type === 'p') {
+    const waist = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.035, 14, 30), glassMaterial);
+    waist.rotation.x = Math.PI / 2;
+    waist.position.y = 0.62;
+    group.add(waist);
+  }
+
+  if (type === 'r') {
+    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.28, 0.34, 34), glassMaterial);
+    tower.position.y = cap.position.y;
+    group.add(tower);
     for (let i = 0; i < 4; i += 1) {
-      const crenel = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.18, 0.18), glassMaterial);
+      const crenel = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.16, 0.2), glassMaterial);
       const angle = (Math.PI / 2) * i;
-      crenel.position.set(Math.cos(angle) * 0.2, cap.position.y + 0.05, Math.sin(angle) * 0.2);
+      crenel.position.set(Math.cos(angle) * 0.22, cap.position.y + 0.15, Math.sin(angle) * 0.22);
       group.add(crenel);
     }
   }
 
-  if (pieceCode[1] === 'b') {
-    const cut = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.38, 0.18), glassMaterial);
-    cut.position.y = cap.position.y + 0.02;
+  if (type === 'b') {
+    const miter = new THREE.Mesh(new THREE.OctahedronGeometry(0.18, 0), glassMaterial);
+    const cut = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.48, 0.16), glassMaterial);
+    miter.position.y = cap.position.y + 0.1;
+    cut.position.y = cap.position.y + 0.1;
     cut.rotation.z = Math.PI / 6;
-    group.add(cut);
+    group.add(miter, cut);
   }
 
-  if (pieceCode[1] === 'q') {
+  if (type === 'q') {
+    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.28, 0.24, 20), glassMaterial);
+    crown.position.y = cap.position.y + 0.02;
+    group.add(crown);
     for (let i = 0; i < 5; i += 1) {
-      const jewel = new THREE.Mesh(new THREE.SphereGeometry(0.07, 18, 18), glassMaterial);
+      const jewel = new THREE.Mesh(new THREE.SphereGeometry(0.075, 18, 18), glassMaterial);
       const angle = (Math.PI * 2 * i) / 5;
-      jewel.position.set(Math.cos(angle) * 0.22, cap.position.y + 0.18, Math.sin(angle) * 0.22);
+      jewel.position.set(Math.cos(angle) * 0.24, cap.position.y + 0.27, Math.sin(angle) * 0.24);
       group.add(jewel);
     }
   }
 
-  if (pieceCode[1] === 'k') {
+  if (type === 'k') {
+    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.24, 0.3, 20), glassMaterial);
     const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.42, 0.08), glassMaterial);
     const crossH = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.08, 0.08), glassMaterial);
-    crossV.position.y = cap.position.y + 0.32;
-    crossH.position.y = cap.position.y + 0.32;
-    group.add(crossV, crossH);
+    crown.position.y = cap.position.y + 0.08;
+    crossV.position.y = cap.position.y + 0.42;
+    crossH.position.y = cap.position.y + 0.42;
+    group.add(crown, crossV, crossH);
   }
 
-  if (pieceCode[1] === 'n') {
-    const neck = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.48, 0.18), glassMaterial);
-    const head = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.58, 4), glassMaterial);
-    neck.position.set(0, 0.72, 0.04);
-    head.position.set(0.05, 1.08, 0.06);
-    head.rotation.z = Math.PI / 2.7;
+  if (type === 'n') {
+    const chest = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.34, 0.22), glassMaterial);
+    const neck = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.56, 0.16), glassMaterial);
+    const head = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.64, 4), glassMaterial);
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.18, 4), glassMaterial);
+    chest.position.set(0, 0.58, 0.04);
+    neck.position.set(0.02, 0.84, 0.05);
+    neck.rotation.z = -Math.PI / 9;
+    head.position.set(0.14, 1.18, 0.08);
+    head.rotation.z = Math.PI / 2.3;
     head.rotation.y = Math.PI / 4;
-    group.add(neck, head);
+    ear.position.set(0.2, 1.4, 0.05);
+    ear.rotation.z = -Math.PI / 8;
+    group.add(chest, neck, head, ear);
   }
+
+  group.userData.floatOffset = Math.random() * Math.PI * 2;
+  group.userData.idleHeight = 0.02 + PIECE_VALUES[type] * 0.002;
+  group.userData.animation = null;
 
   group.traverse((node) => {
     if (node.isMesh) {
@@ -355,11 +381,9 @@ function createPieceMesh(pieceCode) {
 function squareToCoords(square) {
   const file = square.charCodeAt(0) - 97;
   const rank = Number(square[1]) - 1;
-  const displayFile = boardFlipped ? 7 - file : file;
-  const displayRank = boardFlipped ? 7 - rank : rank;
   return {
-    x: displayFile - half + 0.5,
-    z: displayRank - half + 0.5,
+    x: file - half + 0.5,
+    z: rank - half + 0.5,
   };
 }
 
@@ -400,17 +424,6 @@ function updateHighlights() {
   }
 }
 
-function capturePiece(square, color) {
-  const mesh = pieceMeshes.get(square);
-  if (mesh) {
-    piecesGroup.remove(mesh);
-    pieceMeshes.delete(square);
-    livePieceEntries.splice(livePieceEntries.findIndex((entry) => entry.square === square), 1);
-  }
-  const piece = color === 'w' ? 'bp' : 'wp';
-  return piece;
-}
-
 function syncCaptured() {
   capturedWhite.innerHTML = captureState.w.map((piece) => `<span>${PIECE_LABELS[piece]}</span>`).join('');
   capturedBlack.innerHTML = captureState.b.map((piece) => `<span>${PIECE_LABELS[piece]}</span>`).join('');
@@ -423,39 +436,57 @@ function layoutPieceMesh(mesh, pieceCode, square, immediate = false) {
   const yBase = 0.13 + PIECE_VALUES[pieceCode[1]] * 0.003;
   if (immediate) {
     mesh.position.set(x, yBase, z);
+    mesh.userData.animation = null;
+  } else {
+    const from = mesh.position.clone();
+    const to = new THREE.Vector3(x, yBase, z);
+    const distance = from.distanceTo(to);
+    mesh.userData.animation = {
+      from,
+      to,
+      start: performance.now(),
+      duration: 260 + distance * 120,
+      arcHeight: 0.12 + distance * 0.06,
+    };
   }
   mesh.userData.target = { x, y: yBase, z };
 }
 
-function syncPieces(immediate = false) {
-  const board = chess.board();
-  const expectedSquares = new Set();
+function removePieceAtSquare(square) {
+  const mesh = pieceMeshes.get(square);
+  if (!mesh) {
+    return;
+  }
+  piecesGroup.remove(mesh);
+  pieceMeshes.delete(square);
+}
 
+function relayoutPieces(immediate = false) {
+  for (const [square, mesh] of pieceMeshes.entries()) {
+    layoutPieceMesh(mesh, mesh.userData.pieceCode, square, immediate);
+  }
+}
+
+function rebuildPiecesFromBoard(immediate = true) {
+  for (const mesh of pieceMeshes.values()) {
+    piecesGroup.remove(mesh);
+  }
+  pieceMeshes.clear();
+
+  const board = chess.board();
   board.forEach((rank, rankIndex) => {
     rank.forEach((piece, fileIndex) => {
       if (!piece) {
         return;
       }
       const square = `${'abcdefgh'[fileIndex]}${8 - rankIndex}`;
-      expectedSquares.add(square);
       const pieceCode = `${piece.color}${piece.type}`;
-      let mesh = pieceMeshes.get(square);
-      if (!mesh) {
-        mesh = createPieceMesh(pieceCode);
-        pieceMeshes.set(square, mesh);
-        livePieceEntries.push({ square, mesh });
-        piecesGroup.add(mesh);
-      }
+      const mesh = createPieceMesh(pieceCode);
+      pieceMeshes.set(square, mesh);
+      piecesGroup.add(mesh);
       layoutPieceMesh(mesh, pieceCode, square, immediate);
     });
   });
-
-  for (const [square, mesh] of [...pieceMeshes.entries()]) {
-    if (!expectedSquares.has(square)) {
-      piecesGroup.remove(mesh);
-      pieceMeshes.delete(square);
-    }
-  }
 }
 
 function updateMoveLog() {
@@ -527,14 +558,47 @@ function applyMove(from, to) {
     return false;
   }
 
+  const movingPieceCode = `${move.color}${move.piece}`;
+  let movingMesh = pieceMeshes.get(from);
+  if (!movingMesh) {
+    rebuildPiecesFromBoard(true);
+    movingMesh = pieceMeshes.get(from);
+  }
+
   if (move.captured) {
     const capturedCode = `${move.color === 'w' ? 'b' : 'w'}${move.captured}`;
     captureState[move.color].push(capturedCode);
+    const captureSquare = move.flags.includes('e') ? `${move.to[0]}${move.from[1]}` : move.to;
+    removePieceAtSquare(captureSquare);
+  }
+
+  if (movingMesh) {
+    pieceMeshes.delete(from);
+    pieceMeshes.set(to, movingMesh);
+    layoutPieceMesh(movingMesh, movingPieceCode, to, false);
+  }
+
+  if (move.flags.includes('k') || move.flags.includes('q')) {
+    const rookFrom = move.flags.includes('k') ? `${move.color === 'w' ? 'h1' : 'h8'}` : `${move.color === 'w' ? 'a1' : 'a8'}`;
+    const rookTo = move.flags.includes('k') ? `${move.color === 'w' ? 'f1' : 'f8'}` : `${move.color === 'w' ? 'd1' : 'd8'}`;
+    const rookMesh = pieceMeshes.get(rookFrom);
+    if (rookMesh) {
+      pieceMeshes.delete(rookFrom);
+      pieceMeshes.set(rookTo, rookMesh);
+      layoutPieceMesh(rookMesh, `${move.color}r`, rookTo, false);
+    }
+  }
+
+  if (move.flags.includes('p')) {
+    removePieceAtSquare(to);
+    const promotedMesh = createPieceMesh(`${move.color}${move.promotion}`);
+    pieceMeshes.set(to, promotedMesh);
+    piecesGroup.add(promotedMesh);
+    layoutPieceMesh(promotedMesh, `${move.color}${move.promotion}`, to, true);
   }
 
   lastMoveSquares = [move.from, move.to];
   clearSelection();
-  syncPieces(false);
   updateMoveLog();
   syncCaptured();
   updateStatus(getMoveText(move));
@@ -599,12 +663,27 @@ function animate() {
   rim.material.emissiveIntensity = 0.15 + Math.sin(time * 2.5) * 0.04;
 
   for (const mesh of pieceMeshes.values()) {
+    const animation = mesh.userData.animation;
     const target = mesh.userData.target;
     if (!target) continue;
-    mesh.position.x += (target.x - mesh.position.x) * 0.16;
-    mesh.position.y += (target.y - mesh.position.y) * 0.14;
-    mesh.position.z += (target.z - mesh.position.z) * 0.16;
-    mesh.rotation.y += 0.01;
+
+    if (animation) {
+      const elapsed = performance.now() - animation.start;
+      const t = Math.min(elapsed / animation.duration, 1);
+      const eased = 1 - ((1 - t) ** 3);
+      mesh.position.lerpVectors(animation.from, animation.to, eased);
+      mesh.position.y += Math.sin(Math.PI * eased) * animation.arcHeight;
+      if (t >= 1) {
+        mesh.userData.animation = null;
+      }
+    } else {
+      const drift = Math.sin(time * 1.8 + mesh.userData.floatOffset) * mesh.userData.idleHeight;
+      mesh.position.x += (target.x - mesh.position.x) * 0.14;
+      mesh.position.y += ((target.y + drift) - mesh.position.y) * 0.12;
+      mesh.position.z += (target.z - mesh.position.z) * 0.14;
+    }
+
+    mesh.rotation.y += (Math.sin(time * 0.8 + mesh.userData.floatOffset) * 0.08 - mesh.rotation.y) * 0.08;
   }
 
   renderer.render(scene, camera);
@@ -617,7 +696,7 @@ function resetGame() {
   legalTargets.clear();
   captureState.w = [];
   captureState.b = [];
-  syncPieces(true);
+  rebuildPiecesFromBoard(true);
   updateMoveLog();
   syncCaptured();
   updateHighlights();
@@ -626,6 +705,8 @@ function resetGame() {
 }
 
 function projectWorldPoint(point3d) {
+  scene.updateMatrixWorld(true);
+  camera.updateMatrixWorld(true);
   const point = point3d.clone().project(camera);
   const rect = canvas.getBoundingClientRect();
   return {
@@ -635,10 +716,16 @@ function projectWorldPoint(point3d) {
 }
 
 function projectSquare(square, mode = 'auto') {
+  scene.updateMatrixWorld(true);
   const pieceMesh = pieceMeshes.get(square);
   const usePiecePoint = mode === 'piece' || (mode === 'auto' && pieceMesh);
   if (usePiecePoint && pieceMesh) {
-    return projectWorldPoint(new THREE.Vector3(pieceMesh.position.x, pieceMesh.position.y + 0.9, pieceMesh.position.z));
+    const piecePoint = pieceMesh.localToWorld(new THREE.Vector3(0, 0.9, 0));
+    return projectWorldPoint(piecePoint);
+  }
+  const squareMesh = squareMeshes.get(square);
+  if (squareMesh) {
+    return projectWorldPoint(squareMesh.getWorldPosition(new THREE.Vector3()));
   }
   return projectWorldPoint(squareCenterWorld(square));
 }
@@ -650,6 +737,10 @@ window.__chessDebug = {
   getTurn: () => chess.turn(),
   getStatus: () => statusLabel.textContent,
   getMoveLog: () => chess.history(),
+  getPieceAt: (square) => {
+    const piece = chess.get(square);
+    return piece ? `${piece.color}${piece.type}` : null;
+  },
   isGameOver: () => chess.isGameOver(),
   boardMetrics: () => ({
     viewport: { width: window.innerWidth, height: window.innerHeight },

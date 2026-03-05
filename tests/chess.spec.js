@@ -75,6 +75,17 @@ test('marble glass chess supports clicks, castling, en passant, and checkmate co
   await clickSquare(window, 'b1', 'piece');
   await expect(window.locator('#selectionLabel')).toHaveText('None');
 
+  await window.locator('#flipButton').click();
+  await clickSquare(window, 'b1', 'square');
+  await expect(window.locator('#selectionLabel')).toContainText('Knight on b1');
+  await clickSquare(window, 'c3', 'square');
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('c3'))).toBe('wn');
+  await expect(window.locator('#statusLabel')).toContainText('Black to move');
+  await window.locator('#resetButton').click();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('b1'))).toBe('wn');
+  await window.locator('#flipButton').click();
+  await expect(window.locator('#selectionLabel')).toHaveText('None');
+
   await playMoves(window, [
     ['e2', 'e4'],
     ['e7', 'e5'],
@@ -99,6 +110,8 @@ test('marble glass chess supports clicks, castling, en passant, and checkmate co
   ]);
   await expect(window.locator('#statusLabel')).toContainText('en passant');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getFen())).toContain('p2P4');
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('d6'))).toBe('wp');
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('d5'))).toBeNull();
 
   await window.locator('#resetButton').click();
   await playMoves(window, [
@@ -114,6 +127,7 @@ test('marble glass chess supports clicks, castling, en passant, and checkmate co
   await expect(window.locator('#statusLabel')).toContainText('wins by checkmate');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.isGameOver())).toBeTruthy();
   await expect(window.locator('#moveLog li').last()).toContainText('Qxf7#');
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('f7'))).toBe('wq');
 
   await window.locator('#flipButton').click();
   await expect(window.locator('#statusLabel')).toContainText('wins by checkmate');
