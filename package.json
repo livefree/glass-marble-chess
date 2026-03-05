@@ -1,0 +1,24 @@
+{
+  "name": "glass-marble-chess",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Beautiful 3D chess in Electron with Playwright verification",
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "electron .",
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "chess.js": "^1.4.0",
+    "three": "^0.180.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "electron": "^38.2.1",
+    "playwright": "^1.55.0",
+    "vite": "^7.1.5"
+  }
+}
