@@ -83,7 +83,8 @@ h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 0.94; }
 .status-panel,
 .move-panels section,
 .play-config,
-.analysis-panel {
+.analysis-panel,
+.save-panel {
   border: 1px solid rgba(148, 209, 255, 0.14);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.03);
@@ -174,10 +175,82 @@ h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 0.94; }
   gap: 12px;
 }
 
+.save-panel {
+  display: grid;
+  gap: 12px;
+}
+
 .analysis-panel p {
   margin: 8px 0 0;
   color: var(--muted);
   line-height: 1.4;
+}
+
+.save-slots {
+  display: grid;
+  gap: 10px;
+}
+
+.save-slot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(161, 220, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.save-slot strong {
+  display: block;
+  margin-top: 2px;
+}
+
+.save-slot p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.35;
+  font-size: 0.9rem;
+}
+
+.slot-actions,
+.pgn-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.slot-button,
+.utility-button {
+  appearance: none;
+  border: 1px solid rgba(161, 220, 255, 0.18);
+  border-radius: 14px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.slot-button:disabled,
+.utility-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+#pgnTextarea {
+  min-height: 168px;
+  resize: vertical;
+  border-radius: 18px;
+  border: 1px solid rgba(161, 220, 255, 0.18);
+  background: rgba(4, 12, 22, 0.72);
+  color: var(--text);
+  padding: 14px;
+  font: 0.9rem/1.45 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+
+#pgnTextarea::placeholder {
+  color: rgba(153, 181, 199, 0.72);
 }
 
 .review-controls {

@@ -19,6 +19,7 @@ const QA_INVENTORY = {
     'Flip board preserves interaction fidelity',
     'PvE mode responds with a bot move at the selected difficulty',
     'Hard PvE uses stable opening-book replies in the opening',
+    'Hard PvE switches to deeper endgame search with transposition-table caching',
     'Opening and replay metadata stay visible for post-game review',
     'Move and endgame sound cues can be toggled and emitted',
     'Castling works through normal board interaction',
@@ -27,6 +28,7 @@ const QA_INVENTORY = {
     'Running out of time ends the game and blocks further play',
     'Checkmate and draw both end the game with a visible overlay and blocked further play',
     'Mode, difficulty, theme, and time control persist across reloads',
+    'Current games can be exported to PGN, imported from PGN, and resumed from local save slots',
   ],
   controls: [
     'Board click selection and move target click',
@@ -37,6 +39,7 @@ const QA_INVENTORY = {
     'Difficulty segmented control',
     'Time control segmented control',
     'Promotion choice overlay',
+    'Save slot and PGN controls',
     'Move log, overlay, and turn spotlight updates',
   ],
   exploratory: [
@@ -139,7 +142,10 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await window.evaluate(() => window.__chessDebug.clickSquare('e7'));
   await expect(window.locator('#selectionLabel')).toHaveText('None');
 
-  await clickSquare(window, 'e4', 'square');
+  {
+    const hoverPoint = await window.evaluate(() => window.__chessDebug.getSquareScreenPosition('e4', 'square'));
+    await window.mouse.move(hoverPoint.x, hoverPoint.y);
+  }
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().hoverSquare)).toBe('e4');
 
   await clickSquare(window, 'b1', 'piece');
@@ -192,6 +198,14 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await window.evaluate(() => window.__chessDebug.clickSquare('f3'));
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog())).toEqual(['e4', 'e5', 'Nf3', 'Nc6']);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().openingName)).toBe('King Knight Opening');
+  await window.evaluate(() => window.__chessDebug.setFen('8/8/8/8/8/5k2/8/6Kq b - - 0 1'));
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.previewBotMove()), { timeout: 15_000 }).toMatchObject({ san: 'Qg2#' });
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getEngineStats())).toMatchObject({
+    endgame: true,
+    usedBook: false,
+    depth: 5,
+  });
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getEngineStats().transpositionEntries)).toBeGreaterThan(0);
 
   await clickControl(window, '#resetButton');
   await clickControl(window, '[data-mode="pvp"]');
@@ -346,6 +360,40 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await clickControl(window, '#soundToggleButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().soundEnabled)).toBeFalsy();
   await expect(window.locator('#soundToggleButton')).toHaveText('Sound Off');
+
+  await clickControl(window, '[data-mode="pvp"]');
+  await clickControl(window, '[data-time="rapid5"]');
+  await clickControl(window, '[data-theme="glass-marble"]');
+  await clickControl(window, '#resetButton');
+  await playMoves(window, [
+    ['e2', 'e4'],
+    ['e7', 'e5'],
+    ['g1', 'f3'],
+    ['b8', 'c6'],
+  ]);
+  await clickControl(window, '#exportPgnButton');
+  await expect(window.locator('#pgnTextarea')).toHaveValue(/1\. e4 e5 2\. Nf3 Nc6/);
+  const exportedPgn = await window.locator('#pgnTextarea').inputValue();
+  await window.locator('[data-save-slot="0"]').click();
+  await expect(window.locator('[data-slot="0"] .save-slot-title')).toContainText('King Knight Opening');
+  await expect(window.locator('#persistenceLabel')).toContainText('slot 1');
+  await clickControl(window, '#resetButton');
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog().length)).toBe(0);
+  await window.locator('[data-load-slot="0"]').click();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog())).toEqual(['e4', 'e5', 'Nf3', 'Nc6']);
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().openingName)).toBe('King Knight Opening');
+  await expect(window.locator('#pgnTextarea')).toHaveValue(/1\. e4 e5 2\. Nf3 Nc6/);
+  await clickControl(window, '#resetButton');
+  await window.locator('#pgnTextarea').fill(exportedPgn);
+  await clickControl(window, '#importPgnButton');
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog())).toEqual(['e4', 'e5', 'Nf3', 'Nc6']);
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getFen())).toBe('r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3');
+  await expect(window.locator('#persistenceLabel')).toContainText('PGN imported');
+  await window.locator('#pgnTextarea').fill('1. f3 e5 2. g4 Qh4#');
+  await clickControl(window, '#importPgnButton');
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().overlayVisible)).toBeTruthy();
+  await expect(window.locator('#overlayHeadline')).toHaveText('Black wins');
+  await expect(window.locator('#moveLog li').last()).toContainText('Qh4#');
 
   await electronApp.close();
 });

@@ -10,23 +10,37 @@ const PROMOTION_LABELS = { q: 'Queen', r: 'Rook', b: 'Bishop', n: 'Knight' };
 
 const PIECE_VALUES = { p: 1, n: 3, b: 3.25, r: 5, q: 9, k: 99 };
 const DIFFICULTY_SETTINGS = {
-  easy: { depth: 1, thinkMs: 320, randomness: 18 },
-  medium: { depth: 2, thinkMs: 420, randomness: 8 },
-  hard: { depth: 3, thinkMs: 560, randomness: 0 },
+  easy: { depth: 1, thinkMs: 320, randomness: 18, endgameBonus: 0 },
+  medium: { depth: 2, thinkMs: 420, randomness: 8, endgameBonus: 1 },
+  hard: { depth: 3, thinkMs: 560, randomness: 0, endgameBonus: 2 },
 };
 const OPENING_BOOK = {
-  'e4': ['e5', 'c5', 'e6'],
+  'e4': ['e5', 'c5', 'e6', 'c6'],
   'd4': ['Nf6', 'd5', 'e6'],
-  'c4': ['e5', 'c5'],
+  'c4': ['e5', 'c5', 'Nf6'],
   'Nf3': ['Nf6', 'd5'],
-  'e4 e5 Nf3': ['Nc6'],
-  'e4 e5 Nf3 Nc6 Bc4': ['Bc5'],
-  'e4 e5 Nf3 Nc6 Bb5': ['a6'],
-  'e4 c5 Nf3': ['d6'],
+  'e4 e5': ['Nf3', 'Nc3', 'Bc4'],
+  'e4 e5 Nf3': ['Nc6', 'Nf6'],
+  'e4 e5 Nf3 Nc6': ['Bc4', 'Bb5', 'd4'],
+  'e4 e5 Nf3 Nc6 Bc4': ['Bc5', 'Nf6'],
+  'e4 e5 Nf3 Nc6 Bc4 Bc5': ['c3', 'Nc3'],
+  'e4 e5 Nf3 Nc6 Bb5': ['a6', 'Nf6'],
+  'e4 e5 Nf3 Nc6 Bb5 a6': ['Ba4', 'Bxc6'],
+  'e4 c5': ['Nf3', 'Nc3'],
+  'e4 c5 Nf3': ['d6', 'Nc6', 'e6'],
+  'e4 c5 Nf3 d6': ['d4', 'Bb5+'],
   'e4 c5 Nf3 d6 d4': ['cxd4'],
-  'd4 Nf6 c4': ['e6', 'g6'],
-  'd4 d5 c4': ['e6'],
-  'd4 Nf6 Nf3': ['d5'],
+  'e4 e6': ['d4', 'Nf3'],
+  'e4 e6 d4': ['d5'],
+  'e4 c6': ['d4', 'Nc3'],
+  'e4 c6 d4': ['d5'],
+  'd4 Nf6': ['c4', 'Nf3'],
+  'd4 Nf6 c4': ['e6', 'g6', 'd6'],
+  'd4 Nf6 c4 e6': ['Nc3', 'Nf3'],
+  'd4 d5': ['c4', 'Nf3'],
+  'd4 d5 c4': ['e6', 'c6'],
+  'd4 Nf6 Nf3': ['d5', 'g6'],
+  'c4 e5': ['Nc3', 'g3'],
 };
 const OPENING_NAMES = {
   'e4': 'King Pawn Game',
@@ -36,14 +50,19 @@ const OPENING_NAMES = {
   'e4 e5': 'Open Game',
   'e4 c5': 'Sicilian Defense',
   'e4 e6': 'French Defense',
+  'e4 c6': 'Caro-Kann Defense',
   'd4 Nf6': 'Indian Defense',
   'd4 d5': 'Closed Game',
   'e4 e5 Nf3 Nc6': 'King Knight Opening',
   'e4 e5 Nf3 Nc6 Bc4 Bc5': 'Italian Game',
   'e4 e5 Nf3 Nc6 Bb5 a6': 'Ruy Lopez',
   'e4 c5 Nf3 d6': 'Sicilian Defense: Najdorf Structure',
+  'e4 e6 d4 d5': 'French Defense',
+  'e4 c6 d4 d5': 'Caro-Kann Defense',
   'd4 Nf6 c4 e6': 'Queen\'s Indian Setup',
   'd4 d5 c4 e6': 'Queen\'s Gambit Declined',
+  'd4 Nf6 c4 g6': 'King\'s Indian Defense',
+  'c4 e5': 'Reverse Sicilian',
 };
 const PIECE_SQUARE_TABLES = {
   p: [
@@ -114,6 +133,8 @@ const TIME_CONTROLS = {
   rapid10: { label: '10 min', ms: 600_000 },
 };
 const SETTINGS_STORAGE_KEY = 'glass-marble-chess.settings';
+const SAVE_STORAGE_KEY = 'glass-marble-chess.save-slots';
+const SAVE_SLOT_COUNT = 3;
 const THEMES = {
   'glass-marble': {
     label: 'Glass Marble',
@@ -307,6 +328,33 @@ app.innerHTML = `
         </div>
       </section>
 
+      <section class="save-panel">
+        <div>
+          <span class="label">Saves & PGN</span>
+          <strong id="persistenceLabel">Export, import, or store a match in a local slot.</strong>
+        </div>
+        <div class="save-slots" id="saveSlots">
+          ${Array.from({ length: SAVE_SLOT_COUNT }, (_, index) => `
+            <article class="save-slot" data-slot="${index}">
+              <div>
+                <span class="label">Slot ${index + 1}</span>
+                <strong class="save-slot-title">Empty</strong>
+                <p class="save-slot-detail">No saved game.</p>
+              </div>
+              <div class="slot-actions">
+                <button type="button" class="slot-button" data-save-slot="${index}">Save</button>
+                <button type="button" class="slot-button" data-load-slot="${index}">Load</button>
+              </div>
+            </article>
+          `).join('')}
+        </div>
+        <div class="pgn-actions">
+          <button type="button" class="utility-button" id="exportPgnButton">Export PGN</button>
+          <button type="button" class="utility-button" id="importPgnButton">Import PGN</button>
+        </div>
+        <textarea id="pgnTextarea" spellcheck="false" placeholder="PGN appears here for export, or paste PGN to import."></textarea>
+      </section>
+
       <div class="controls">
         <button id="undoButton">Undo</button>
         <button id="redoButton">Redo</button>
@@ -376,6 +424,7 @@ const whiteClockLabel = document.querySelector('#whiteClockLabel');
 const blackClockLabel = document.querySelector('#blackClockLabel');
 const openingLabel = document.querySelector('#openingLabel');
 const analysisLabel = document.querySelector('#analysisLabel');
+const persistenceLabel = document.querySelector('#persistenceLabel');
 const moveLog = document.querySelector('#moveLog');
 const capturedWhite = document.querySelector('#capturedWhite');
 const capturedBlack = document.querySelector('#capturedBlack');
@@ -395,6 +444,10 @@ const reviewPrevButton = document.querySelector('#reviewPrevButton');
 const reviewExitButton = document.querySelector('#reviewExitButton');
 const reviewNextButton = document.querySelector('#reviewNextButton');
 const reviewEndButton = document.querySelector('#reviewEndButton');
+const saveSlotsElement = document.querySelector('#saveSlots');
+const pgnTextarea = document.querySelector('#pgnTextarea');
+const exportPgnButton = document.querySelector('#exportPgnButton');
+const importPgnButton = document.querySelector('#importPgnButton');
 const undoButton = document.querySelector('#undoButton');
 const redoButton = document.querySelector('#redoButton');
 const soundToggleButton = document.querySelector('#soundToggleButton');
@@ -426,10 +479,14 @@ let reviewIndex = 0;
 let gameStartFen = 'start';
 let recordedHistorySan = [];
 let recordedHistoryVerbose = [];
+let importedHeaders = {};
+let saveSlots = Array.from({ length: SAVE_SLOT_COUNT }, () => null);
 let audioContext = null;
 let lastSoundCue = null;
+let lastEngineStats = { transpositionEntries: 0, depth: 0, endgame: false, nodeCount: 0, usedBook: false };
 const redoStack = [];
 const captureState = { w: [], b: [] };
+const transpositionTable = new Map();
 const clockState = {
   w: TIME_CONTROLS.rapid5.ms,
   b: TIME_CONTROLS.rapid5.ms,
@@ -1138,6 +1195,229 @@ function saveSettings() {
   }
 }
 
+function normalizeSaveEntry(entry) {
+  if (!entry || typeof entry !== 'object' || typeof entry.pgn !== 'string' || !entry.pgn.trim()) return null;
+  const settings = entry.settings ?? {};
+  const clock = entry.clockState ?? {};
+  return {
+    pgn: entry.pgn.trim(),
+    savedAt: Number.isFinite(Date.parse(entry.savedAt)) ? new Date(entry.savedAt).toISOString() : new Date().toISOString(),
+    opening: typeof entry.opening === 'string' && entry.opening ? entry.opening : 'Unclassified',
+    moveCount: Number.isFinite(entry.moveCount) ? entry.moveCount : 0,
+    result: typeof entry.result === 'string' ? entry.result : '*',
+    settings: {
+      playerMode: settings.playerMode === 'pve' ? 'pve' : 'pvp',
+      botDifficulty: DIFFICULTY_SETTINGS[settings.botDifficulty] ? settings.botDifficulty : 'easy',
+      activeThemeKey: THEMES[settings.activeThemeKey] ? settings.activeThemeKey : 'glass-marble',
+      timeControlKey: TIME_CONTROLS[settings.timeControlKey] ? settings.timeControlKey : 'rapid5',
+    },
+    clockState: {
+      w: Number.isFinite(clock.w) ? clock.w : null,
+      b: Number.isFinite(clock.b) ? clock.b : null,
+      started: Boolean(clock.started),
+    },
+  };
+}
+
+function loadSaveSlots() {
+  try {
+    const raw = window.localStorage.getItem(SAVE_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return;
+    saveSlots = Array.from({ length: SAVE_SLOT_COUNT }, (_, index) => normalizeSaveEntry(parsed[index]));
+  } catch {
+    window.localStorage.removeItem(SAVE_STORAGE_KEY);
+    saveSlots = Array.from({ length: SAVE_SLOT_COUNT }, () => null);
+  }
+}
+
+function saveSaveSlots() {
+  try {
+    window.localStorage.setItem(SAVE_STORAGE_KEY, JSON.stringify(saveSlots));
+  } catch {
+    // Ignore storage failures in restrictive renderer contexts.
+  }
+}
+
+function formatSavedAt(savedAt) {
+  const date = new Date(savedAt);
+  if (Number.isNaN(date.getTime())) return 'Unknown time';
+  return date.toLocaleString();
+}
+
+function setPersistenceStatus(message) {
+  persistenceLabel.textContent = message;
+}
+
+function updateSaveSlotsDisplay() {
+  saveSlotsElement.querySelectorAll('.save-slot').forEach((element) => {
+    const index = Number(element.dataset.slot);
+    const entry = saveSlots[index];
+    const title = element.querySelector('.save-slot-title');
+    const detail = element.querySelector('.save-slot-detail');
+    const loadButton = element.querySelector('[data-load-slot]');
+    if (!entry) {
+      title.textContent = 'Empty';
+      detail.textContent = 'No saved game.';
+      loadButton.disabled = true;
+      return;
+    }
+    title.textContent = `${entry.opening} · ${entry.moveCount} plies`;
+    detail.textContent = `${formatSavedAt(entry.savedAt)} · ${entry.settings.playerMode === 'pve' ? `PvE ${entry.settings.botDifficulty}` : 'PvP'} · ${TIME_CONTROLS[entry.settings.timeControlKey].label}`;
+    loadButton.disabled = false;
+  });
+}
+
+function formatPgnDate(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}.${month}.${day}`;
+}
+
+function getPgnResult() {
+  if (forcedConclusion?.expiredColor === 'w') return '0-1';
+  if (forcedConclusion?.expiredColor === 'b') return '1-0';
+  if (chess.isCheckmate()) return chess.turn() === 'w' ? '0-1' : '1-0';
+  if (chess.isDraw()) return '1/2-1/2';
+  return '*';
+}
+
+function getExportHeaders() {
+  const baseHeaders = {
+    Event: 'Glass Marble Chess',
+    Site: 'Electron Desktop',
+    Date: formatPgnDate(),
+    Round: '-',
+    White: 'White',
+    Black: playerMode === 'pve' ? `Bot (${botDifficulty})` : 'Black',
+    Result: getPgnResult(),
+    ...importedHeaders,
+  };
+  baseHeaders.Date = formatPgnDate();
+  baseHeaders.Result = getPgnResult();
+  if (gameStartFen !== 'start') {
+    baseHeaders.SetUp = '1';
+    baseHeaders.FEN = gameStartFen;
+  } else {
+    delete baseHeaders.SetUp;
+    delete baseHeaders.FEN;
+  }
+  return baseHeaders;
+}
+
+function buildPgnExport() {
+  const exportGame = gameStartFen === 'start' ? new Chess() : new Chess(gameStartFen);
+  Object.entries(getExportHeaders()).forEach(([key, value]) => {
+    if (value != null && value !== '') exportGame.setHeader(key, value);
+  });
+  recordedHistoryVerbose.forEach((move) => {
+    exportGame.move({ from: move.from, to: move.to, promotion: move.promotion });
+  });
+  return exportGame.pgn({ maxWidth: 88 });
+}
+
+function importPgnText(rawPgn, options = {}) {
+  const { restoreState = null, statusMessage = 'PGN imported.' } = options;
+  const pgn = rawPgn.trim();
+  if (!pgn) {
+    setPersistenceStatus('Paste PGN before importing.');
+    return false;
+  }
+
+  const parsedGame = new Chess();
+  try {
+    parsedGame.loadPgn(pgn);
+  } catch (error) {
+    setPersistenceStatus(`Import failed: ${error.message}`);
+    return false;
+  }
+
+  clearBotTimer();
+  botThinking = false;
+  forcedConclusion = null;
+  reviewMode = false;
+  reviewIndex = 0;
+  boardFlipped = false;
+  updateBoardOrientation();
+  resetRedoStack();
+  transpositionTable.clear();
+  importedHeaders = parsedGame.getHeaders?.() ?? {};
+  gameStartFen = importedHeaders.FEN ?? 'start';
+
+  if (restoreState?.settings) {
+    playerMode = restoreState.settings.playerMode === 'pve' ? 'pve' : 'pvp';
+    botDifficulty = DIFFICULTY_SETTINGS[restoreState.settings.botDifficulty] ? restoreState.settings.botDifficulty : botDifficulty;
+    activeThemeKey = THEMES[restoreState.settings.activeThemeKey] ? restoreState.settings.activeThemeKey : activeThemeKey;
+    timeControlKey = TIME_CONTROLS[restoreState.settings.timeControlKey] ? restoreState.settings.timeControlKey : timeControlKey;
+    applyTheme();
+    saveSettings();
+  }
+
+  if (gameStartFen === 'start') chess.reset();
+  else chess.load(gameStartFen);
+  parsedGame.history({ verbose: true }).forEach((move) => {
+    chess.move({ from: move.from, to: move.to, promotion: move.promotion });
+  });
+
+  if (restoreState?.clockState && getTimeControl().ms != null) {
+    clockState.w = restoreState.clockState.w;
+    clockState.b = restoreState.clockState.b;
+    clockState.started = restoreState.clockState.started && chess.history().length > 0 && !chess.isGameOver();
+    clockState.lastTickAt = performance.now();
+  } else {
+    resetClocks();
+    clockState.started = false;
+  }
+
+  syncBoardState(true, statusMessage);
+  pgnTextarea.value = buildPgnExport();
+  relayoutPieces(true);
+  resize();
+  scheduleBotTurn();
+  setPersistenceStatus(statusMessage);
+  return true;
+}
+
+function saveCurrentGameToSlot(slotIndex) {
+  const pgn = buildPgnExport();
+  pgnTextarea.value = pgn;
+  saveSlots[slotIndex] = {
+    pgn,
+    savedAt: new Date().toISOString(),
+    opening: getOpeningName(),
+    moveCount: recordedHistoryVerbose.length,
+    result: getPgnResult(),
+    settings: {
+      playerMode,
+      botDifficulty,
+      activeThemeKey,
+      timeControlKey,
+    },
+    clockState: {
+      w: clockState.w,
+      b: clockState.b,
+      started: clockState.started,
+    },
+  };
+  saveSaveSlots();
+  updateSaveSlotsDisplay();
+  setPersistenceStatus(`Saved current match to slot ${slotIndex + 1}.`);
+}
+
+function loadGameFromSlot(slotIndex) {
+  const entry = saveSlots[slotIndex];
+  if (!entry) {
+    setPersistenceStatus(`Slot ${slotIndex + 1} is empty.`);
+    return false;
+  }
+  return importPgnText(entry.pgn, {
+    restoreState: entry,
+    statusMessage: `Loaded slot ${slotIndex + 1}.`,
+  });
+}
+
 function resetRedoStack() {
   redoStack.length = 0;
 }
@@ -1717,6 +1997,9 @@ function evaluateBoard(game, perspective) {
   const board = game.board();
   const bishopCount = { w: 0, b: 0 };
   const pawnFiles = { w: Array(8).fill(0), b: Array(8).fill(0) };
+  const kingSquares = { w: null, b: null };
+  let queenCount = 0;
+  let nonPawnMaterial = 0;
   board.forEach((rank, rankIndex) => {
     rank.forEach((piece, fileIndex) => {
       if (!piece) return;
@@ -1728,6 +2011,9 @@ function evaluateBoard(game, perspective) {
       const pieceSquare = getPieceSquareBonus(piece, rankIndex, fileIndex);
       score += sign * (PIECE_VALUES[piece.type] * 100 + center * 6 + advancement * 10 + pieceSquare);
       if (piece.type === 'b') bishopCount[piece.color] += 1;
+      if (piece.type === 'k') kingSquares[piece.color] = { rankIndex, fileIndex };
+      if (piece.type === 'q') queenCount += 1;
+      if (piece.type !== 'p' && piece.type !== 'k') nonPawnMaterial += PIECE_VALUES[piece.type];
       if (piece.type === 'p') {
         pawnFiles[piece.color][fileIndex] += 1;
         if (isPassedPawn(board, rankIndex, fileIndex, piece.color)) {
@@ -1746,57 +2032,131 @@ function evaluateBoard(game, perspective) {
     if (pawnFiles.b[fileIndex] > 1) score += perspective === 'b' ? -14 * (pawnFiles.b[fileIndex] - 1) : 14 * (pawnFiles.b[fileIndex] - 1);
   }
 
+  if (queenCount === 0 || nonPawnMaterial <= 12) {
+    const whiteKing = kingSquares.w;
+    const blackKing = kingSquares.b;
+    if (whiteKing && blackKing) {
+      const kingDistance = Math.abs(whiteKing.fileIndex - blackKing.fileIndex) + Math.abs(whiteKing.rankIndex - blackKing.rankIndex);
+      const whiteKingCenter = 3.5 - (Math.abs(whiteKing.fileIndex - 3.5) + Math.abs(whiteKing.rankIndex - 3.5)) / 2;
+      const blackKingCenter = 3.5 - (Math.abs(blackKing.fileIndex - 3.5) + Math.abs(blackKing.rankIndex - 3.5)) / 2;
+      score += perspective === 'w'
+        ? whiteKingCenter * 18 - blackKingCenter * 18 - kingDistance * 4
+        : blackKingCenter * 18 - whiteKingCenter * 18 - kingDistance * 4;
+    }
+  }
+
   const mobility = game.moves().length;
   score += (game.turn() === perspective ? 1 : -1) * mobility * 0.8;
   if (game.inCheck()) score += game.turn() === perspective ? -26 : 26;
   return score;
 }
 
-function searchBestScore(game, depth, alpha, beta, perspective) {
+function isEndgamePosition(game) {
+  const board = game.board();
+  let queens = 0;
+  let nonPawnMaterial = 0;
+  board.forEach((rank) => {
+    rank.forEach((piece) => {
+      if (!piece || piece.type === 'k') return;
+      if (piece.type === 'q') queens += 1;
+      if (piece.type !== 'p') nonPawnMaterial += PIECE_VALUES[piece.type];
+    });
+  });
+  return queens === 0 || nonPawnMaterial <= 12;
+}
+
+function getMoveCacheKey(move) {
+  return `${move.from}${move.to}${move.promotion ?? ''}`;
+}
+
+function searchBestScore(game, depth, alpha, beta, perspective, stats) {
   if (depth === 0 || game.isGameOver()) return evaluateBoard(game, perspective);
+  stats.nodeCount += 1;
+
+  const alphaOrig = alpha;
+  const betaOrig = beta;
+  const tableKey = `${game.fen()}|${depth}|${perspective}`;
+  const cached = transpositionTable.get(tableKey);
+  if (cached) {
+    if (cached.bound === 'exact') return cached.score;
+    if (cached.bound === 'lower') alpha = Math.max(alpha, cached.score);
+    if (cached.bound === 'upper') beta = Math.min(beta, cached.score);
+    if (alpha >= beta) return cached.score;
+  }
 
   const moves = game.moves({ verbose: true }).sort((a, b) => scoreMoveHeuristic(b) - scoreMoveHeuristic(a));
+  if (cached?.bestMove) {
+    moves.sort((a, b) => Number(getMoveCacheKey(b) === cached.bestMove) - Number(getMoveCacheKey(a) === cached.bestMove));
+  }
   const maximizing = game.turn() === perspective;
+  let bestMoveKey = moves[0] ? getMoveCacheKey(moves[0]) : null;
 
   if (maximizing) {
     let best = -Infinity;
     for (const move of moves) {
       game.move(move);
-      best = Math.max(best, searchBestScore(game, depth - 1, alpha, beta, perspective));
+      const candidate = searchBestScore(game, depth - 1, alpha, beta, perspective, stats);
       game.undo();
+      if (candidate > best) {
+        best = candidate;
+        bestMoveKey = getMoveCacheKey(move);
+      }
       alpha = Math.max(alpha, best);
       if (beta <= alpha) break;
     }
+    const bound = best <= alphaOrig ? 'upper' : best >= betaOrig ? 'lower' : 'exact';
+    transpositionTable.set(tableKey, { score: best, bound, bestMove: bestMoveKey });
     return best;
   }
 
   let best = Infinity;
   for (const move of moves) {
     game.move(move);
-    best = Math.min(best, searchBestScore(game, depth - 1, alpha, beta, perspective));
+    const candidate = searchBestScore(game, depth - 1, alpha, beta, perspective, stats);
     game.undo();
+    if (candidate < best) {
+      best = candidate;
+      bestMoveKey = getMoveCacheKey(move);
+    }
     beta = Math.min(beta, best);
     if (beta <= alpha) break;
   }
+  const bound = best <= alphaOrig ? 'upper' : best >= betaOrig ? 'lower' : 'exact';
+  transpositionTable.set(tableKey, { score: best, bound, bestMove: bestMoveKey });
   return best;
 }
 
 function chooseBotMove() {
   const bookMove = getOpeningBookMove();
-  if (bookMove) return bookMove;
+  if (bookMove) {
+    lastEngineStats = { transpositionEntries: 0, depth: 0, endgame: false, nodeCount: 0, usedBook: true };
+    return bookMove;
+  }
 
   const settings = DIFFICULTY_SETTINGS[botDifficulty];
   const sandbox = new Chess(chess.fen());
+  const endgame = isEndgamePosition(sandbox);
+  const depth = settings.depth + (endgame ? settings.endgameBonus : 0);
+  const stats = { nodeCount: 0 };
+  transpositionTable.clear();
   const moves = sandbox.moves({ verbose: true }).sort((a, b) => scoreMoveHeuristic(b) - scoreMoveHeuristic(a));
   if (!moves.length) return null;
 
   const scoredMoves = moves.map((move) => {
     sandbox.move(move);
-    const score = searchBestScore(sandbox, settings.depth - 1, -Infinity, Infinity, BOT_COLOR);
+    const score = searchBestScore(sandbox, depth - 1, -Infinity, Infinity, BOT_COLOR, stats);
     sandbox.undo();
     const noise = settings.randomness ? Math.random() * settings.randomness : 0;
     return { move, score: score + noise };
   }).sort((a, b) => b.score - a.score);
+
+  lastEngineStats = {
+    transpositionEntries: transpositionTable.size,
+    depth,
+    endgame,
+    nodeCount: stats.nodeCount,
+    usedBook: false,
+  };
 
   if (settings.randomness > 0) {
     const pool = scoredMoves.slice(0, Math.min(3, scoredMoves.length));
@@ -2014,6 +2374,27 @@ reviewPrevButton.addEventListener('click', () => enterReviewMode(Math.max(0, rev
 reviewNextButton.addEventListener('click', () => enterReviewMode(Math.min(recordedHistoryVerbose.length, reviewIndex + 1)));
 reviewEndButton.addEventListener('click', () => enterReviewMode(recordedHistoryVerbose.length));
 reviewExitButton.addEventListener('click', () => exitReviewMode());
+saveSlotsElement.addEventListener('click', (event) => {
+  const saveButton = event.target.closest('[data-save-slot]');
+  if (saveButton) {
+    ensureAudioContext();
+    saveCurrentGameToSlot(Number(saveButton.dataset.saveSlot));
+    return;
+  }
+  const loadButton = event.target.closest('[data-load-slot]');
+  if (loadButton) {
+    ensureAudioContext();
+    loadGameFromSlot(Number(loadButton.dataset.loadSlot));
+  }
+});
+exportPgnButton.addEventListener('click', () => {
+  pgnTextarea.value = buildPgnExport();
+  setPersistenceStatus('PGN exported to the text box.');
+});
+importPgnButton.addEventListener('click', () => {
+  ensureAudioContext();
+  importPgnText(pgnTextarea.value);
+});
 undoButton.addEventListener('click', () => {
   ensureAudioContext();
   undoMoveBatch();
@@ -2191,16 +2572,20 @@ function resetGame() {
   reviewMode = false;
   reviewIndex = 0;
   boardFlipped = false;
+  importedHeaders = {};
   updateBoardOrientation();
   saveSettings();
   chess.reset();
   gameStartFen = 'start';
   resetRedoStack();
   resetClocks();
+  transpositionTable.clear();
+  pgnTextarea.value = '';
   syncBoardState(true);
   relayoutPieces(true);
   resize();
   scheduleBotTurn();
+  setPersistenceStatus('Export, import, or store a match in a local slot.');
 }
 
 function loadFenForDebug(fen) {
@@ -2210,10 +2595,13 @@ function loadFenForDebug(fen) {
   reviewMode = false;
   chess.load(fen);
   gameStartFen = fen;
+  importedHeaders = { SetUp: '1', FEN: fen };
   reviewIndex = 0;
   resetRedoStack();
   resetClocks();
   clockState.started = false;
+  transpositionTable.clear();
+  pgnTextarea.value = '';
   syncBoardState(true);
 }
 
@@ -2249,6 +2637,7 @@ window.__chessDebug = {
   getTurn: () => chess.turn(),
   getStatus: () => statusLabel.textContent,
   getMoveLog: () => chess.history(),
+  getPgn: () => buildPgnExport(),
   getClockState: () => ({ w: clockState.w, b: clockState.b, timeControlKey, started: clockState.started }),
   getPieceAt: (square) => {
     const piece = chess.get(square);
@@ -2274,8 +2663,19 @@ window.__chessDebug = {
     selection: selectionLabel.textContent,
     canUndo: !undoButton.disabled,
     canRedo: !redoButton.disabled,
+    persistenceMessage: persistenceLabel.textContent,
   }),
   setFen: (fen) => loadFenForDebug(fen),
+  importPgn: (pgn) => importPgnText(pgn),
+  saveSlot: (index) => saveCurrentGameToSlot(index),
+  loadSlot: (index) => loadGameFromSlot(index),
+  getSaveSlots: () => saveSlots,
+  previewBotMove: () => {
+    const move = chooseBotMove();
+    if (!move) return null;
+    return { from: move.from, to: move.to, san: move.san };
+  },
+  getEngineStats: () => lastEngineStats,
   setClocks: ({ w, b, timeKey = timeControlKey, started = false }) => {
     if (TIME_CONTROLS[timeKey]) timeControlKey = timeKey;
     clockState.w = w;
@@ -2287,6 +2687,7 @@ window.__chessDebug = {
   },
   resetSettings: () => {
     window.localStorage.removeItem(SETTINGS_STORAGE_KEY);
+    window.localStorage.removeItem(SAVE_STORAGE_KEY);
   },
   getSavedSettings: () => {
     const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
@@ -2306,9 +2707,11 @@ window.__chessDebug = {
 };
 
 loadSettings();
+loadSaveSlots();
 updateBoardOrientation();
 applyTheme();
 updateSoundToggle();
+updateSaveSlotsDisplay();
 resize();
 resetGame();
 animate();
