@@ -21,8 +21,9 @@ const QA_INVENTORY = {
     'Castling works through normal board interaction',
     'En passant works through normal board interaction',
     'Promotion requires a piece choice and uses the chosen piece',
+    'Running out of time ends the game and blocks further play',
     'Checkmate and draw both end the game with a visible overlay and blocked further play',
-    'Mode, difficulty, theme, and board orientation persist across reloads',
+    'Mode, difficulty, theme, and time control persist across reloads',
   ],
   controls: [
     'Board click selection and move target click',
@@ -31,6 +32,7 @@ const QA_INVENTORY = {
     'Flip Board button',
     'Mode segmented control',
     'Difficulty segmented control',
+    'Time control segmented control',
     'Promotion choice overlay',
     'Move log, overlay, and turn spotlight updates',
   ],
@@ -84,6 +86,8 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect(window.locator('#whiteTurnPill')).toHaveClass(/active/);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().overlayVisible)).toBeFalsy();
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().boardFlipped)).toBeFalsy();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().timeControlKey)).toBe('rapid5');
+  await expect(window.locator('#whiteClockLabel')).toHaveText('05:00');
   await expect(window.locator('button[data-theme="glass-marble"]')).toHaveClass(/active/);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().activeThemeKey)).toBe('glass-marble');
 
@@ -263,14 +267,26 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await clickSquare(window, 'h8', 'square');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getFen())).toBe(drawFen);
 
+  await window.locator('#overlayResetButton').click();
+  await window.evaluate(() => window.__chessDebug.setClocks({ w: 50, b: 60_000, timeKey: 'blitz1' }));
+  await expect(window.locator('#whiteClockLabel')).toContainText('00:01');
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().overlayVisible)).toBeTruthy();
+  await expect(window.locator('#overlayHeadline')).toHaveText('Black wins');
+  await expect(window.locator('#overlayDetail')).toContainText('flags on time');
+  const timeoutFen = await window.evaluate(() => window.__chessDebug.getFen());
+  await clickSquare(window, 'e2', 'square');
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getFen())).toBe(timeoutFen);
+
   await window.locator('[data-mode="pve"]').click();
   await window.locator('[data-difficulty="hard"]').click();
+  await window.locator('[data-time="rapid10"]').click();
   await window.locator('[data-theme="rosewood-ivory"]').click();
   await window.locator('#flipButton').click();
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getSavedSettings())).toMatchObject({
     playerMode: 'pve',
     botDifficulty: 'hard',
     activeThemeKey: 'rosewood-ivory',
+    timeControlKey: 'rapid10',
   });
   await window.reload();
   await window.waitForLoadState('domcontentloaded');
@@ -278,11 +294,14 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
     playerMode: 'pve',
     botDifficulty: 'hard',
     activeThemeKey: 'rosewood-ivory',
+    timeControlKey: 'rapid10',
     boardFlipped: false,
   });
   await expect(window.locator('[data-mode="pve"]')).toHaveClass(/active/);
   await expect(window.locator('[data-difficulty="hard"]')).toHaveClass(/active/);
   await expect(window.locator('button[data-theme="rosewood-ivory"]')).toHaveClass(/active/);
+  await expect(window.locator('[data-time="rapid10"]')).toHaveClass(/active/);
+  await expect(window.locator('#whiteClockLabel')).toHaveText('10:00');
 
   await electronApp.close();
 });

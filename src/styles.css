@@ -137,8 +137,21 @@ h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 0.94; }
 
 .status-panel {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 12px;
+}
+
+#whiteClockLabel,
+#blackClockLabel {
+  font-variant-numeric: tabular-nums;
+}
+
+.clock-active {
+  color: var(--accent-warm);
+}
+
+.clock-expired {
+  color: #ff9e9e;
 }
 
 .label {

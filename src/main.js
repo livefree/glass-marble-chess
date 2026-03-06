@@ -14,6 +14,12 @@ const DIFFICULTY_SETTINGS = {
   medium: { depth: 2, thinkMs: 420, randomness: 8 },
   hard: { depth: 3, thinkMs: 560, randomness: 0 },
 };
+const TIME_CONTROLS = {
+  untimed: { label: 'Untimed', ms: null },
+  blitz1: { label: '1 min', ms: 60_000 },
+  rapid5: { label: '5 min', ms: 300_000 },
+  rapid10: { label: '10 min', ms: 600_000 },
+};
 const SETTINGS_STORAGE_KEY = 'glass-marble-chess.settings';
 const THEMES = {
   'glass-marble': {
@@ -147,6 +153,14 @@ app.innerHTML = `
           <span class="label">Selection</span>
           <strong id="selectionLabel">None</strong>
         </div>
+        <div>
+          <span class="label">White Clock</span>
+          <strong id="whiteClockLabel">05:00</strong>
+        </div>
+        <div>
+          <span class="label">Black Clock</span>
+          <strong id="blackClockLabel">05:00</strong>
+        </div>
       </div>
 
       <section class="play-config">
@@ -172,6 +186,15 @@ app.innerHTML = `
             <button type="button" class="segment" data-theme="obsidian-gold">Obsidian Gold</button>
             <button type="button" class="segment" data-theme="jade-brass">Jade Brass</button>
             <button type="button" class="segment" data-theme="rosewood-ivory">Rosewood Ivory</button>
+          </div>
+        </div>
+        <div>
+          <span class="label">Time</span>
+          <div class="segmented" id="timeControls">
+            <button type="button" class="segment active" data-time="rapid5">5 min</button>
+            <button type="button" class="segment" data-time="blitz1">1 min</button>
+            <button type="button" class="segment" data-time="rapid10">10 min</button>
+            <button type="button" class="segment" data-time="untimed">Untimed</button>
           </div>
         </div>
       </section>
@@ -238,6 +261,8 @@ const turnHeadline = document.querySelector('#turnHeadline');
 const turnPrompt = document.querySelector('#turnPrompt');
 const statusLabel = document.querySelector('#statusLabel');
 const selectionLabel = document.querySelector('#selectionLabel');
+const whiteClockLabel = document.querySelector('#whiteClockLabel');
+const blackClockLabel = document.querySelector('#blackClockLabel');
 const moveLog = document.querySelector('#moveLog');
 const capturedWhite = document.querySelector('#capturedWhite');
 const capturedBlack = document.querySelector('#capturedBlack');
@@ -251,6 +276,7 @@ const blackTurnPill = document.querySelector('#blackTurnPill');
 const modeControls = document.querySelector('#modeControls');
 const difficultyControls = document.querySelector('#difficultyControls');
 const themeControls = document.querySelector('#themeControls');
+const timeControls = document.querySelector('#timeControls');
 const undoButton = document.querySelector('#undoButton');
 const redoButton = document.querySelector('#redoButton');
 const promotionOverlay = document.querySelector('#promotionOverlay');
@@ -263,16 +289,23 @@ const overlayDetail = document.querySelector('#overlayDetail');
 let playerMode = 'pvp';
 let botDifficulty = 'easy';
 let activeThemeKey = 'glass-marble';
+let timeControlKey = 'rapid5';
 let boardFlipped = false;
 let selectedSquare = null;
 let lastMoveSquares = [];
 let hoverSquare = null;
 let botThinking = false;
 let botTimer = null;
+let forcedConclusion = null;
 let pendingPromotion = null;
 let dragState = null;
 const redoStack = [];
 const captureState = { w: [], b: [] };
+const clockState = {
+  w: TIME_CONTROLS.rapid5.ms,
+  b: TIME_CONTROLS.rapid5.ms,
+  lastTickAt: null,
+};
 
 const chess = new Chess();
 const scene = new THREE.Scene();
@@ -950,6 +983,7 @@ function loadSettings() {
     if (settings.playerMode === 'pvp' || settings.playerMode === 'pve') playerMode = settings.playerMode;
     if (DIFFICULTY_SETTINGS[settings.botDifficulty]) botDifficulty = settings.botDifficulty;
     if (THEMES[settings.activeThemeKey]) activeThemeKey = settings.activeThemeKey;
+    if (TIME_CONTROLS[settings.timeControlKey]) timeControlKey = settings.timeControlKey;
   } catch {
     window.localStorage.removeItem(SETTINGS_STORAGE_KEY);
   }
@@ -961,6 +995,7 @@ function saveSettings() {
       playerMode,
       botDifficulty,
       activeThemeKey,
+      timeControlKey,
     }));
   } catch {
     // Ignore storage failures in restrictive renderer contexts.
@@ -1014,7 +1049,78 @@ function getModeLabel() {
   return playerMode === 'pve' ? `PvE · ${botDifficulty}` : 'PvP';
 }
 
+function getTimeControl() {
+  return TIME_CONTROLS[timeControlKey];
+}
+
+function formatClock(ms) {
+  if (ms == null) return '--:--';
+  const clamped = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(clamped / 60);
+  const seconds = clamped % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function resetClocks() {
+  const initial = getTimeControl().ms;
+  clockState.w = initial;
+  clockState.b = initial;
+  clockState.lastTickAt = performance.now();
+}
+
+function updateClockLabels() {
+  whiteClockLabel.textContent = formatClock(clockState.w);
+  blackClockLabel.textContent = formatClock(clockState.b);
+  whiteClockLabel.classList.toggle('clock-active', !forcedConclusion && !chess.isGameOver() && chess.turn() === 'w' && getTimeControl().ms != null);
+  blackClockLabel.classList.toggle('clock-active', !forcedConclusion && !chess.isGameOver() && chess.turn() === 'b' && getTimeControl().ms != null);
+  whiteClockLabel.classList.toggle('clock-expired', forcedConclusion?.expiredColor === 'w');
+  blackClockLabel.classList.toggle('clock-expired', forcedConclusion?.expiredColor === 'b');
+}
+
+function isMatchOver() {
+  return chess.isGameOver() || Boolean(forcedConclusion);
+}
+
+function expireOnTime(color) {
+  if (forcedConclusion) return;
+  clearBotTimer();
+  botThinking = false;
+  const winner = color === 'w' ? 'Black' : 'White';
+  forcedConclusion = {
+    headline: `${winner} wins`,
+    detail: `${color === 'w' ? 'White' : 'Black'} flags on time.`,
+    expiredColor: color,
+  };
+  clearSelection();
+  updateClockLabels();
+  updateStatus();
+}
+
+function tickClocks(now = performance.now()) {
+  const activeTime = getTimeControl().ms;
+  if (activeTime == null) {
+    clockState.lastTickAt = now;
+    updateClockLabels();
+    return;
+  }
+  const lastTickAt = clockState.lastTickAt ?? now;
+  clockState.lastTickAt = now;
+  if (isMatchOver()) {
+    updateClockLabels();
+    return;
+  }
+  const elapsed = now - lastTickAt;
+  const color = chess.turn();
+  clockState[color] = Math.max(0, clockState[color] - elapsed);
+  if (clockState[color] === 0) {
+    expireOnTime(color);
+    return;
+  }
+  updateClockLabels();
+}
+
 function getGameConclusion() {
+  if (forcedConclusion) return forcedConclusion;
   if (chess.isCheckmate()) {
     const winner = chess.turn() === 'w' ? 'Black' : 'White';
     return { headline: `${winner} wins`, detail: 'Checkmate ends the game.' };
@@ -1061,6 +1167,12 @@ function updateThemeControls() {
   });
 }
 
+function updateTimeControls() {
+  timeControls.querySelectorAll('[data-time]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.time === timeControlKey);
+  });
+}
+
 function getUndoBatchSize() {
   const historyLength = chess.history().length;
   if (!historyLength) return 0;
@@ -1093,7 +1205,9 @@ function updateStatus(extraMessage = '') {
   turnLabel.textContent = turnName;
   updateTurnVisuals(turn);
   updateModeControls();
+  updateTimeControls();
   updateActionButtons();
+  updateClockLabels();
 
   let statusMessage = `${turnName} to move`;
   let promptMessage = `${turnName} controls the next move.`;
@@ -1135,8 +1249,8 @@ function updateStatus(extraMessage = '') {
   hintLabel.textContent = conclusion
     ? conclusion.detail
     : playerMode === 'pve'
-      ? `Mode: ${getModeLabel()} · Special moves: castling, en passant, promotion choice.`
-      : 'Special moves supported: castling, en passant, promotion choice.';
+      ? `Mode: ${getModeLabel()} · Time: ${getTimeControl().label} · Special moves: castling, en passant, promotion choice.`
+      : `Time: ${getTimeControl().label} · Special moves: castling, en passant, promotion choice.`;
 
   setOverlay(conclusion);
 }
@@ -1145,6 +1259,7 @@ function selectSquare(square) {
   const piece = chess.get(square);
   if (!piece || piece.color !== chess.turn()) return;
   if (playerMode === 'pve' && chess.turn() === BOT_COLOR) return;
+  if (isMatchOver()) return;
   hidePromotionOverlay();
   selectedSquare = square;
   selectionLabel.textContent = `${PIECE_LABELS[`${piece.color}${piece.type}`]} on ${square}`;
@@ -1175,6 +1290,7 @@ function undoMoveBatch() {
   if (!batchSize) return false;
   clearBotTimer();
   botThinking = false;
+  forcedConclusion = null;
   hidePromotionOverlay();
   const batch = [];
   for (let i = 0; i < batchSize; i += 1) {
@@ -1187,6 +1303,7 @@ function undoMoveBatch() {
     return false;
   }
   redoStack.push(batch);
+  clockState.lastTickAt = performance.now();
   syncBoardState(true, 'Move undone');
   return true;
 }
@@ -1196,10 +1313,12 @@ function redoMoveBatch() {
   if (!batch?.length) return false;
   clearBotTimer();
   botThinking = false;
+  forcedConclusion = null;
   hidePromotionOverlay();
   batch.forEach((move) => {
     applyMove(move.from, move.to, move.promotion ?? 'q', { clearRedo: false, scheduleBot: false });
   });
+  clockState.lastTickAt = performance.now();
   updateStatus('Move restored');
   scheduleBotTurn();
   return true;
@@ -1291,7 +1410,7 @@ function chooseBotMove() {
 
 function scheduleBotTurn() {
   clearBotTimer();
-  if (playerMode !== 'pve' || chess.isGameOver() || chess.turn() !== BOT_COLOR || pendingPromotion) return;
+  if (playerMode !== 'pve' || isMatchOver() || chess.turn() !== BOT_COLOR || pendingPromotion) return;
   botThinking = true;
   updateStatus();
   botTimer = setTimeout(() => {
@@ -1308,6 +1427,7 @@ function scheduleBotTurn() {
 
 function applyMove(from, to, promotion = 'q', options = {}) {
   const { clearRedo = true, scheduleBot = true } = options;
+  forcedConclusion = null;
   const move = chess.move({ from, to, promotion });
   if (!move) return false;
   if (clearRedo) resetRedoStack();
@@ -1352,6 +1472,7 @@ function applyMove(from, to, promotion = 'q', options = {}) {
   }
 
   lastMoveSquares = [move.from, move.to];
+  clockState.lastTickAt = performance.now();
   clearSelection();
   updateMoveLog();
   syncCaptured();
@@ -1365,7 +1486,7 @@ function isHumanTurn() {
 }
 
 function trySquareClick(square) {
-  if (chess.isGameOver() || botThinking || !isHumanTurn() || pendingPromotion) return;
+  if (isMatchOver() || botThinking || !isHumanTurn() || pendingPromotion) return;
   if (!selectedSquare) {
     selectSquare(square);
     return;
@@ -1388,7 +1509,7 @@ function trySquareClick(square) {
 }
 
 function onPointerDown(event) {
-  if (chess.isGameOver() || botThinking || !isHumanTurn() || pendingPromotion) return;
+  if (isMatchOver() || botThinking || !isHumanTurn() || pendingPromotion) return;
   updatePointerFromEvent(event);
   const square = getHitSquare();
   if (!square) return;
@@ -1534,6 +1655,14 @@ difficultyControls.addEventListener('click', (event) => {
   }
 });
 
+timeControls.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-time]');
+  if (!button || button.dataset.time === timeControlKey) return;
+  timeControlKey = button.dataset.time;
+  saveSettings();
+  resetGame();
+});
+
 themeControls.addEventListener('click', (event) => {
   const button = event.target.closest('[data-theme]');
   if (!button || button.dataset.theme === activeThemeKey) return;
@@ -1579,6 +1708,7 @@ function animate() {
   requestAnimationFrame(animate);
   const time = performance.now() * 0.001;
   const now = performance.now();
+  tickClocks(now);
   boardBase.rotation.y = Math.sin(time * 0.2) * 0.01;
   underGlow.material.opacity = 0.08 + (Math.sin(time * 2.2) + 1) * 0.025;
 
@@ -1634,11 +1764,13 @@ function animate() {
 function resetGame() {
   clearBotTimer();
   botThinking = false;
+  forcedConclusion = null;
   boardFlipped = false;
   updateBoardOrientation();
   saveSettings();
   chess.reset();
   resetRedoStack();
+  resetClocks();
   syncBoardState(true);
   relayoutPieces(true);
   resize();
@@ -1648,8 +1780,10 @@ function resetGame() {
 function loadFenForDebug(fen) {
   clearBotTimer();
   botThinking = false;
+  forcedConclusion = null;
   chess.load(fen);
   resetRedoStack();
+  resetClocks();
   syncBoardState(true);
 }
 
@@ -1685,15 +1819,17 @@ window.__chessDebug = {
   getTurn: () => chess.turn(),
   getStatus: () => statusLabel.textContent,
   getMoveLog: () => chess.history(),
+  getClockState: () => ({ w: clockState.w, b: clockState.b, timeControlKey }),
   getPieceAt: (square) => {
     const piece = chess.get(square);
     return piece ? `${piece.color}${piece.type}` : null;
   },
-  isGameOver: () => chess.isGameOver(),
+  isGameOver: () => isMatchOver(),
   getUiState: () => ({
     playerMode,
     botDifficulty,
     activeThemeKey,
+    timeControlKey,
     boardFlipped,
     hoverSquare,
     botThinking,
@@ -1704,6 +1840,14 @@ window.__chessDebug = {
     canRedo: !redoButton.disabled,
   }),
   setFen: (fen) => loadFenForDebug(fen),
+  setClocks: ({ w, b, timeKey = timeControlKey }) => {
+    if (TIME_CONTROLS[timeKey]) timeControlKey = timeKey;
+    clockState.w = w;
+    clockState.b = b;
+    clockState.lastTickAt = performance.now();
+    forcedConclusion = null;
+    updateStatus();
+  },
   resetSettings: () => {
     window.localStorage.removeItem(SETTINGS_STORAGE_KEY);
   },
