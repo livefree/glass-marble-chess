@@ -223,6 +223,7 @@ app.innerHTML = `
       </div>
       <div class="legend">
         <span id="instructionLabel">Click one of your pieces, then a glowing destination square.</span>
+        <span id="hoverSquareLabel">Pointer: off board</span>
         <span id="hintLabel">Special moves supported: castling, en passant, promotion to queen.</span>
       </div>
     </div>
@@ -242,6 +243,7 @@ const capturedWhite = document.querySelector('#capturedWhite');
 const capturedBlack = document.querySelector('#capturedBlack');
 const hintLabel = document.querySelector('#hintLabel');
 const instructionLabel = document.querySelector('#instructionLabel');
+const hoverSquareLabel = document.querySelector('#hoverSquareLabel');
 const legend = document.querySelector('.legend');
 const turnHero = document.querySelector('#turnHero');
 const whiteTurnPill = document.querySelector('#whiteTurnPill');
@@ -264,6 +266,7 @@ let activeThemeKey = 'glass-marble';
 let boardFlipped = false;
 let selectedSquare = null;
 let lastMoveSquares = [];
+let hoverSquare = null;
 let botThinking = false;
 let botTimer = null;
 let pendingPromotion = null;
@@ -384,6 +387,15 @@ const lastMoveMaterial = new THREE.MeshPhysicalMaterial({
   emissiveIntensity: 0.7,
   roughness: 0.12,
   clearcoat: 1,
+});
+const hoverMaterial = new THREE.MeshPhysicalMaterial({
+  color: 0xa7ecff,
+  emissive: 0x2e8ead,
+  emissiveIntensity: 0.55,
+  roughness: 0.08,
+  clearcoat: 1,
+  transparent: true,
+  opacity: 0.92,
 });
 const checkMaterial = new THREE.MeshPhysicalMaterial({
   color: 0xff8d8d,
@@ -795,6 +807,12 @@ function findKingSquare(color) {
   return null;
 }
 
+function setHoverSquare(square) {
+  hoverSquare = square;
+  hoverSquareLabel.textContent = square ? `Pointer: ${square}` : 'Pointer: off board';
+  updateHighlights();
+}
+
 function clearHighlights() {
   for (const mesh of squareMeshes.values()) {
     mesh.material = mesh.userData.baseMaterial;
@@ -823,6 +841,13 @@ function updateHighlights() {
     if (mesh) {
       mesh.material = legalMaterial;
       mesh.position.y = 0.06;
+    }
+  }
+  if (hoverSquare) {
+    const mesh = squareMeshes.get(hoverSquare);
+    if (mesh && hoverSquare !== selectedSquare) {
+      mesh.material = hoverMaterial;
+      mesh.position.y = Math.max(mesh.position.y, 0.05);
     }
   }
   if (chess.inCheck() && !getGameConclusion()) {
@@ -923,7 +948,6 @@ function loadSettings() {
     if (settings.playerMode === 'pvp' || settings.playerMode === 'pve') playerMode = settings.playerMode;
     if (DIFFICULTY_SETTINGS[settings.botDifficulty]) botDifficulty = settings.botDifficulty;
     if (THEMES[settings.activeThemeKey]) activeThemeKey = settings.activeThemeKey;
-    if (typeof settings.boardFlipped === 'boolean') boardFlipped = settings.boardFlipped;
   } catch {
     window.localStorage.removeItem(SETTINGS_STORAGE_KEY);
   }
@@ -935,7 +959,6 @@ function saveSettings() {
       playerMode,
       botDifficulty,
       activeThemeKey,
-      boardFlipped,
     }));
   } catch {
     // Ignore storage failures in restrictive renderer contexts.
@@ -972,7 +995,9 @@ function syncBoardState(immediate = true, extraMessage = '') {
   lastMoveSquares = verboseHistory.length ? [verboseHistory.at(-1).from, verboseHistory.at(-1).to] : [];
   applyCapturedStateFromHistory(verboseHistory);
   selectedSquare = null;
+  hoverSquare = null;
   selectionLabel.textContent = 'None';
+  hoverSquareLabel.textContent = 'Pointer: off board';
   legalTargets.clear();
   legalMovesByTarget.clear();
   hidePromotionOverlay();
@@ -1367,28 +1392,34 @@ function onPointerDown(event) {
   if (!square) return;
   const piece = chess.get(square);
   const ownTurnPiece = piece && piece.color === chess.turn();
-  if (ownTurnPiece) selectSquare(square);
-  const mesh = ownTurnPiece ? pieceMeshes.get(square) : null;
+  setHoverSquare(square);
   dragState = {
     pointerId: event.pointerId,
     square,
-    mesh,
+    ownTurnPiece,
+    mesh: ownTurnPiece ? pieceMeshes.get(square) : null,
     startX: event.clientX,
     startY: event.clientY,
     dragged: false,
   };
-  canvas.style.cursor = 'grabbing';
+  canvas.style.cursor = ownTurnPiece ? 'grab' : '';
   canvas.setPointerCapture?.(event.pointerId);
 }
 
 function onPointerMove(event) {
-  if (!dragState || dragState.pointerId !== event.pointerId) return;
-  if (!dragState.mesh) return;
+  updatePointerFromEvent(event);
+  const hovered = getHitSquare(dragState?.dragged ? dragState.mesh : null);
+  setHoverSquare(hovered);
+  if (!dragState || dragState.pointerId !== event.pointerId || !dragState.mesh) return;
   const movement = Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY);
   if (!dragState.dragged && movement < 8) return;
+  if (!dragState.dragged) {
+    selectSquare(dragState.square);
+    dragState.dragged = true;
+    canvas.style.cursor = 'grabbing';
+  }
   const dragPoint = getDragPoint(event);
   if (!dragPoint) return;
-  dragState.dragged = true;
   dragState.mesh.userData.animation = null;
   dragState.mesh.userData.landing = null;
   dragState.mesh.position.set(dragPoint.x, 0.9, dragPoint.z);
@@ -1401,6 +1432,7 @@ function onPointerUp(event) {
   if (!activeDrag || activeDrag.pointerId !== event.pointerId) return;
   updatePointerFromEvent(event);
   const square = getHitSquare(activeDrag.mesh);
+  setHoverSquare(square);
   canvas.releasePointerCapture?.(event.pointerId);
   if (activeDrag.dragged) {
     const targetSquare = square ?? activeDrag.square;
@@ -1433,10 +1465,16 @@ function onPointerCancel(event) {
   updateHighlights();
 }
 
+function onPointerLeave() {
+  if (dragState?.dragged) return;
+  setHoverSquare(null);
+}
+
 canvas.addEventListener('pointerdown', onPointerDown);
 canvas.addEventListener('pointermove', onPointerMove);
 canvas.addEventListener('pointerup', onPointerUp);
 canvas.addEventListener('pointercancel', onPointerCancel);
+canvas.addEventListener('pointerleave', onPointerLeave);
 
 document.querySelector('#resetButton').addEventListener('click', () => resetGame());
 document.querySelector('#overlayResetButton').addEventListener('click', () => resetGame());
@@ -1586,9 +1624,14 @@ function animate() {
 function resetGame() {
   clearBotTimer();
   botThinking = false;
+  boardFlipped = false;
+  updateBoardOrientation();
+  saveSettings();
   chess.reset();
   resetRedoStack();
   syncBoardState(true);
+  relayoutPieces(true);
+  resize();
   scheduleBotTurn();
 }
 
@@ -1642,6 +1685,7 @@ window.__chessDebug = {
     botDifficulty,
     activeThemeKey,
     boardFlipped,
+    hoverSquare,
     botThinking,
     overlayVisible: !gameOverlay.hidden,
     promotionVisible: !promotionOverlay.hidden,

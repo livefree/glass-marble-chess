@@ -12,6 +12,7 @@ const QA_INVENTORY = {
     '3D marble-and-glass chess board renders in the launched Electron window',
     'The board remains fully visible and fit to the window after resizing',
     'Players can click pieces and destination squares to move legally',
+    'The hovered board square is visible while aiming the pointer',
     'The active side is visually obvious',
     'Pieces can also be moved by dragging them to a legal square',
     'Undo and redo restore the expected board state',
@@ -82,6 +83,7 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect(window.locator('#statusLabel')).toContainText('White to move');
   await expect(window.locator('#whiteTurnPill')).toHaveClass(/active/);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().overlayVisible)).toBeFalsy();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().boardFlipped)).toBeFalsy();
   await expect(window.locator('button[data-theme="glass-marble"]')).toHaveClass(/active/);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().activeThemeKey)).toBe('glass-marble');
 
@@ -118,10 +120,22 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await window.evaluate(() => window.__chessDebug.clickSquare('e7'));
   await expect(window.locator('#selectionLabel')).toHaveText('None');
 
-  await window.evaluate(() => window.__chessDebug.clickSquare('b1'));
+  await clickSquare(window, 'e4', 'square');
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().hoverSquare)).toBe('e4');
+
+  await clickSquare(window, 'b1', 'piece');
   await expect(window.locator('#selectionLabel')).toContainText('Knight on b1');
-  await window.evaluate(() => window.__chessDebug.clickSquare('b1'));
+  await clickSquare(window, 'b1', 'piece');
   await expect(window.locator('#selectionLabel')).toHaveText('None');
+
+  await clickSquare(window, 'b1', 'piece');
+  await clickSquare(window, 'c3', 'square');
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('c3'))).toBe('wn');
+  await window.locator('#undoButton').click();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('b1'))).toBe('wn');
+  await window.locator('#redoButton').click();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('c3'))).toBe('wn');
+  await window.locator('#resetButton').click();
 
   await dragSquare(window, 'b1', 'c3');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('c3'))).toBe('wn');
@@ -167,8 +181,8 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('c3'))).toBe('wn');
   await expect(window.locator('#statusLabel')).toContainText('Black to move');
   await window.locator('#resetButton').click();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().boardFlipped)).toBeFalsy();
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('b1'))).toBe('wn');
-  await window.locator('#flipButton').click();
   await expect(window.locator('#selectionLabel')).toHaveText('None');
 
   await playMoves(window, [
@@ -257,7 +271,6 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
     playerMode: 'pve',
     botDifficulty: 'hard',
     activeThemeKey: 'rosewood-ivory',
-    boardFlipped: true,
   });
   await window.reload();
   await window.waitForLoadState('domcontentloaded');
@@ -265,7 +278,7 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
     playerMode: 'pve',
     botDifficulty: 'hard',
     activeThemeKey: 'rosewood-ivory',
-    boardFlipped: true,
+    boardFlipped: false,
   });
   await expect(window.locator('[data-mode="pve"]')).toHaveClass(/active/);
   await expect(window.locator('[data-difficulty="hard"]')).toHaveClass(/active/);

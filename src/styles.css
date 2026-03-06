@@ -271,6 +271,7 @@ h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 0.94; }
 
 .legend {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 18px;
   padding: 14px 18px;
