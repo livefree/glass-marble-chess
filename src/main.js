@@ -8,6 +8,110 @@ const PIECE_LABELS = {
 };
 
 const PIECE_VALUES = { p: 1, n: 3, b: 3.25, r: 5, q: 9, k: 99 };
+const DIFFICULTY_SETTINGS = {
+  easy: { depth: 1, thinkMs: 320, randomness: 18 },
+  medium: { depth: 2, thinkMs: 420, randomness: 8 },
+  hard: { depth: 3, thinkMs: 560, randomness: 0 },
+};
+const THEMES = {
+  'glass-marble': {
+    label: 'Glass Marble',
+    boardLight: 0xecf6ff,
+    boardDark: 0x1f2d44,
+    detailLight: 0x86bbd9,
+    detailDark: 0x648fb4,
+    lightSurface: 'marble',
+    darkSurface: 'marble',
+    lightMaterial: { roughness: 0.12, metalness: 0.02, clearcoat: 1, clearcoatRoughness: 0.08 },
+    darkMaterial: { roughness: 0.38, metalness: 0.1, clearcoat: 0.7, clearcoatRoughness: 0.22 },
+    fog: 0x0b1018,
+    envStops: ['#f8fbff', '#87c9ff', '#112742', '#06080d'],
+    accent: '#84e6ff',
+    accentWarm: '#ffd7a0',
+    boardBase: 0x231610,
+    glow: 0x4ba7ff,
+    pieces: {
+      w: { kind: 'glass', color: 0xd9f4ff, detail: 0xb1ecff, emissive: 0x7fd6ff, emissiveIntensity: 0.18 },
+      b: { kind: 'glass', color: 0x0d1a28, detail: 0x274866, emissive: 0x20476e, emissiveIntensity: 0.1 },
+    },
+    keyLight: 0xffffff,
+    rimLight: 0x7ec7ff,
+    warmLight: 0xffcf8b,
+  },
+  'obsidian-gold': {
+    label: 'Obsidian Gold',
+    boardLight: 0xefe0bc,
+    boardDark: 0x18151a,
+    detailLight: 0xc4a261,
+    detailDark: 0x645248,
+    lightSurface: 'brushed-metal',
+    darkSurface: 'stone',
+    lightMaterial: { roughness: 0.24, metalness: 0.92, clearcoat: 0.68, clearcoatRoughness: 0.12 },
+    darkMaterial: { roughness: 0.42, metalness: 0.08, clearcoat: 0.82, clearcoatRoughness: 0.18 },
+    fog: 0x100d0f,
+    envStops: ['#fff0d9', '#d8a44d', '#261d24', '#080608'],
+    accent: '#f0cf84',
+    accentWarm: '#ffe9c4',
+    boardBase: 0x130f12,
+    glow: 0xb98529,
+    pieces: {
+      w: { kind: 'metal', color: 0xe7bf72, detail: 0xffe6b7, emissive: 0xa77725, emissiveIntensity: 0.06 },
+      b: { kind: 'stone', color: 0x131114, detail: 0x43343c, emissive: 0x38252c, emissiveIntensity: 0.03 },
+    },
+    keyLight: 0xfff3df,
+    rimLight: 0xffd27e,
+    warmLight: 0xffb55b,
+  },
+  'jade-brass': {
+    label: 'Jade Brass',
+    boardLight: 0xdff6ee,
+    boardDark: 0x153431,
+    detailLight: 0x7dc4a9,
+    detailDark: 0x96753b,
+    lightSurface: 'stone',
+    darkSurface: 'brushed-metal',
+    lightMaterial: { roughness: 0.28, metalness: 0.06, clearcoat: 0.72, clearcoatRoughness: 0.14 },
+    darkMaterial: { roughness: 0.26, metalness: 0.88, clearcoat: 0.55, clearcoatRoughness: 0.15 },
+    fog: 0x091513,
+    envStops: ['#effff7', '#6dd4b1', '#153f38', '#040908'],
+    accent: '#86f0c8',
+    accentWarm: '#d9ba71',
+    boardBase: 0x1a1610,
+    glow: 0x49b995,
+    pieces: {
+      w: { kind: 'jade', color: 0xbcecdf, detail: 0x5aa98a, emissive: 0x58c89b, emissiveIntensity: 0.08 },
+      b: { kind: 'metal', color: 0xb88a44, detail: 0xf4d7a1, emissive: 0x7f5b1f, emissiveIntensity: 0.04 },
+    },
+    keyLight: 0xf8fff9,
+    rimLight: 0x88f0d0,
+    warmLight: 0xd7a95d,
+  },
+  'rosewood-ivory': {
+    label: 'Rosewood Ivory',
+    boardLight: 0xf7ede2,
+    boardDark: 0x4b1f2a,
+    detailLight: 0xd9b5a2,
+    detailDark: 0xb46472,
+    lightSurface: 'ivory',
+    darkSurface: 'wood',
+    lightMaterial: { roughness: 0.24, metalness: 0.02, clearcoat: 0.5, clearcoatRoughness: 0.18 },
+    darkMaterial: { roughness: 0.58, metalness: 0.02, clearcoat: 0.36, clearcoatRoughness: 0.24 },
+    fog: 0x170b10,
+    envStops: ['#fff5ef', '#efb0a7', '#512330', '#090507'],
+    accent: '#ffb6b0',
+    accentWarm: '#ffe0b8',
+    boardBase: 0x2f181d,
+    glow: 0xe17f92,
+    pieces: {
+      w: { kind: 'ivory', color: 0xf7efe4, detail: 0xd7bf9d, emissive: 0xcfa880, emissiveIntensity: 0.02 },
+      b: { kind: 'wood', color: 0x5a2c32, detail: 0x8e575d, emissive: 0x4c2029, emissiveIntensity: 0.02 },
+    },
+    keyLight: 0xfff4ee,
+    rimLight: 0xffb5bf,
+    warmLight: 0xffd49f,
+  },
+};
+const BOT_COLOR = 'b';
 
 const app = document.querySelector('#app');
 app.innerHTML = `
@@ -16,8 +120,18 @@ app.innerHTML = `
       <div>
         <p class="eyebrow">Electron 3D Chess</p>
         <h1>Glass Marble Chess</h1>
-        <p class="lede">Move the pieces directly on the board. Marble squares, glass pieces, soft fog, caustic-style reflections, and full chess rules.</p>
+        <p class="lede">Responsive marble board, luminous glass pieces, and a playable desktop chess table with human and engine modes.</p>
       </div>
+
+      <section class="turn-hero" id="turnHero" data-turn="w">
+        <div class="turn-pill-row">
+          <span class="turn-pill active" id="whiteTurnPill">White</span>
+          <span class="turn-pill" id="blackTurnPill">Black</span>
+        </div>
+        <strong id="turnHeadline">White to move</strong>
+        <p id="turnPrompt">White controls the first move.</p>
+      </section>
+
       <div class="status-panel">
         <div>
           <span class="label">Turn</span>
@@ -32,10 +146,39 @@ app.innerHTML = `
           <strong id="selectionLabel">None</strong>
         </div>
       </div>
+
+      <section class="play-config">
+        <div>
+          <span class="label">Mode</span>
+          <div class="segmented" id="modeControls">
+            <button type="button" class="segment active" data-mode="pvp">PvP</button>
+            <button type="button" class="segment" data-mode="pve">PvE</button>
+          </div>
+        </div>
+        <div>
+          <span class="label">Difficulty</span>
+          <div class="segmented" id="difficultyControls">
+            <button type="button" class="segment active" data-difficulty="easy">Easy</button>
+            <button type="button" class="segment" data-difficulty="medium">Medium</button>
+            <button type="button" class="segment" data-difficulty="hard">Hard</button>
+          </div>
+        </div>
+        <div>
+          <span class="label">Theme</span>
+          <div class="segmented" id="themeControls">
+            <button type="button" class="segment active" data-theme="glass-marble">Glass Marble</button>
+            <button type="button" class="segment" data-theme="obsidian-gold">Obsidian Gold</button>
+            <button type="button" class="segment" data-theme="jade-brass">Jade Brass</button>
+            <button type="button" class="segment" data-theme="rosewood-ivory">Rosewood Ivory</button>
+          </div>
+        </div>
+      </section>
+
       <div class="controls">
         <button id="resetButton">Reset Match</button>
         <button id="flipButton">Flip Board</button>
       </div>
+
       <div class="move-panels">
         <section>
           <h2>Move Log</h2>
@@ -48,10 +191,21 @@ app.innerHTML = `
         </section>
       </div>
     </div>
+
     <div class="board-wrap">
-      <canvas id="scene"></canvas>
+      <div class="board-stage" id="boardStage">
+        <canvas id="scene"></canvas>
+        <div class="game-overlay" id="gameOverlay" hidden>
+          <div class="overlay-card">
+            <p class="overlay-eyebrow">Game Over</p>
+            <h2 id="overlayHeadline">White wins</h2>
+            <p id="overlayDetail">Checkmate ends the game.</p>
+            <button id="overlayResetButton">Play Again</button>
+          </div>
+        </div>
+      </div>
       <div class="legend">
-        <span>Click one of your pieces, then a glowing destination square.</span>
+        <span id="instructionLabel">Click one of your pieces, then a glowing destination square.</span>
         <span id="hintLabel">Special moves supported: castling, en passant, promotion to queen.</span>
       </div>
     </div>
@@ -59,20 +213,38 @@ app.innerHTML = `
 `;
 
 const canvas = document.querySelector('#scene');
+const boardWrap = document.querySelector('.board-wrap');
+const boardStage = document.querySelector('#boardStage');
 const turnLabel = document.querySelector('#turnLabel');
+const turnHeadline = document.querySelector('#turnHeadline');
+const turnPrompt = document.querySelector('#turnPrompt');
 const statusLabel = document.querySelector('#statusLabel');
 const selectionLabel = document.querySelector('#selectionLabel');
 const moveLog = document.querySelector('#moveLog');
 const capturedWhite = document.querySelector('#capturedWhite');
 const capturedBlack = document.querySelector('#capturedBlack');
 const hintLabel = document.querySelector('#hintLabel');
+const instructionLabel = document.querySelector('#instructionLabel');
+const legend = document.querySelector('.legend');
+const turnHero = document.querySelector('#turnHero');
+const whiteTurnPill = document.querySelector('#whiteTurnPill');
+const blackTurnPill = document.querySelector('#blackTurnPill');
+const modeControls = document.querySelector('#modeControls');
+const difficultyControls = document.querySelector('#difficultyControls');
+const themeControls = document.querySelector('#themeControls');
+const gameOverlay = document.querySelector('#gameOverlay');
+const overlayHeadline = document.querySelector('#overlayHeadline');
+const overlayDetail = document.querySelector('#overlayDetail');
 
-document.querySelector('#resetButton').addEventListener('click', () => resetGame());
-document.querySelector('#flipButton').addEventListener('click', () => {
-  boardFlipped = !boardFlipped;
-  updateBoardOrientation();
-  relayoutPieces(true);
-});
+let playerMode = 'pvp';
+let botDifficulty = 'easy';
+let activeThemeKey = 'glass-marble';
+let boardFlipped = false;
+let selectedSquare = null;
+let lastMoveSquares = [];
+let botThinking = false;
+let botTimer = null;
+const captureState = { w: [], b: [] };
 
 const chess = new Chess();
 const scene = new THREE.Scene();
@@ -101,8 +273,8 @@ keyLight.shadow.mapSize.width = 2048;
 keyLight.shadow.mapSize.height = 2048;
 keyLight.shadow.bias = -0.00003;
 const rimLight = new THREE.PointLight(0x7ec7ff, 70, 25, 2);
-rimLight.position.set(-8, 7, -8);
 const warmLight = new THREE.PointLight(0xffcf8b, 40, 18, 2);
+rimLight.position.set(-8, 7, -8);
 warmLight.position.set(6, 5, 8);
 scene.add(ambient, hemi, keyLight, keyLight.target, rimLight, warmLight);
 
@@ -130,33 +302,16 @@ const half = boardSize / 2;
 const squareMeshes = new Map();
 const pieceMeshes = new Map();
 const legalTargets = new Set();
-const captureState = { w: [], b: [] };
-let boardFlipped = false;
-let selectedSquare = null;
-let lastMoveSquares = [];
 
 const squareGeometry = new THREE.BoxGeometry(squareSize, 0.22, squareSize);
 const boardBase = new THREE.Mesh(
   new THREE.BoxGeometry(9.8, 0.8, 9.8),
-  new THREE.MeshPhysicalMaterial({
-    color: 0x231610,
-    roughness: 0.5,
-    metalness: 0.15,
-    clearcoat: 0.45,
-  })
+  new THREE.MeshPhysicalMaterial({ color: 0x231610, roughness: 0.5, metalness: 0.15, clearcoat: 0.45 })
 );
 boardBase.position.y = -0.52;
 boardBase.receiveShadow = true;
 boardBase.castShadow = true;
 boardGroup.add(boardBase);
-
-const rim = new THREE.Mesh(
-  new THREE.TorusGeometry(5.2, 0.12, 12, 90),
-  new THREE.MeshPhysicalMaterial({ color: 0x8fd6ff, roughness: 0.2, transmission: 0.2, thickness: 0.6 })
-);
-rim.rotation.x = Math.PI / 2;
-rim.position.y = -0.02;
-boardGroup.add(rim);
 
 const underGlow = new THREE.Mesh(
   new THREE.CircleGeometry(6.8, 64),
@@ -229,6 +384,162 @@ function makeMarbleMap(lightHex, darkHex) {
   return texture;
 }
 
+function makeWoodMap(baseHex, grainHex) {
+  const size = 256;
+  const localCanvas = document.createElement('canvas');
+  localCanvas.width = size;
+  localCanvas.height = size;
+  const ctx = localCanvas.getContext('2d');
+  const gradient = ctx.createLinearGradient(0, 0, size, size);
+  gradient.addColorStop(0, `#${baseHex.toString(16).padStart(6, '0')}`);
+  gradient.addColorStop(1, `#${Math.max(baseHex - 0x141414, 0).toString(16).padStart(6, '0')}`);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  const grain = `rgba(${(grainHex >> 16) & 255}, ${(grainHex >> 8) & 255}, ${grainHex & 255}, 0.18)`;
+  for (let i = 0; i < 34; i += 1) {
+    ctx.beginPath();
+    ctx.strokeStyle = grain;
+    ctx.lineWidth = 1 + (i % 3);
+    const offset = (i / 34) * size;
+    ctx.moveTo(0, offset + Math.sin(i) * 6);
+    for (let x = 0; x <= size; x += 24) {
+      ctx.lineTo(x, offset + Math.sin((x / size) * Math.PI * 4 + i) * 8);
+    }
+    ctx.stroke();
+  }
+  const texture = new THREE.CanvasTexture(localCanvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(1.5, 1.5);
+  return texture;
+}
+
+function makeBrushedMetalMap(baseHex, detailHex) {
+  const size = 256;
+  const localCanvas = document.createElement('canvas');
+  localCanvas.width = size;
+  localCanvas.height = size;
+  const ctx = localCanvas.getContext('2d');
+  ctx.fillStyle = `#${baseHex.toString(16).padStart(6, '0')}`;
+  ctx.fillRect(0, 0, size, size);
+  for (let i = 0; i < 180; i += 1) {
+    const alpha = 0.03 + (i % 6) * 0.01;
+    ctx.fillStyle = `rgba(${(detailHex >> 16) & 255}, ${(detailHex >> 8) & 255}, ${detailHex & 255}, ${alpha})`;
+    ctx.fillRect(0, Math.random() * size, size, 1 + Math.random() * 2);
+  }
+  const texture = new THREE.CanvasTexture(localCanvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(1.2, 1.2);
+  return texture;
+}
+
+function makeStoneMap(baseHex, detailHex) {
+  const size = 256;
+  const localCanvas = document.createElement('canvas');
+  localCanvas.width = size;
+  localCanvas.height = size;
+  const ctx = localCanvas.getContext('2d');
+  ctx.fillStyle = `#${baseHex.toString(16).padStart(6, '0')}`;
+  ctx.fillRect(0, 0, size, size);
+  for (let i = 0; i < 140; i += 1) {
+    const radius = 3 + Math.random() * 16;
+    ctx.fillStyle = `rgba(${(detailHex >> 16) & 255}, ${(detailHex >> 8) & 255}, ${detailHex & 255}, ${0.025 + Math.random() * 0.05})`;
+    ctx.beginPath();
+    ctx.arc(Math.random() * size, Math.random() * size, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const texture = new THREE.CanvasTexture(localCanvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(1.3, 1.3);
+  return texture;
+}
+
+function makeSurfaceMap(kind, baseHex, detailHex) {
+  if (kind === 'wood') return makeWoodMap(baseHex, detailHex);
+  if (kind === 'brushed-metal') return makeBrushedMetalMap(baseHex, detailHex);
+  if (kind === 'stone' || kind === 'jade' || kind === 'ivory') return makeStoneMap(baseHex, detailHex);
+  return makeMarbleMap(baseHex, detailHex);
+}
+
+function applyPhysicalMaterial(material, props) {
+  Object.entries(props).forEach(([key, value]) => {
+    material[key] = value;
+  });
+}
+
+function configurePieceMaterial(material, pieceTheme) {
+  material.color.setHex(pieceTheme.color);
+  material.emissive.setHex(pieceTheme.emissive);
+  material.emissiveIntensity = pieceTheme.emissiveIntensity;
+  material.map = makeSurfaceMap(pieceTheme.kind, pieceTheme.color, pieceTheme.detail);
+  material.transparent = false;
+  material.opacity = 1;
+  material.metalness = 0.05;
+  material.roughness = 0.3;
+  material.clearcoat = 0.45;
+  material.clearcoatRoughness = 0.14;
+  material.transmission = 0;
+  material.thickness = 0;
+  material.ior = 1.2;
+
+  if (pieceTheme.kind === 'glass') {
+    material.transparent = true;
+    material.opacity = 0.92;
+    material.metalness = 0;
+    material.roughness = 0.04;
+    material.clearcoat = 1;
+    material.clearcoatRoughness = 0.03;
+    material.transmission = 0.76;
+    material.thickness = 1.3;
+    material.ior = 1.26;
+  } else if (pieceTheme.kind === 'metal') {
+    material.metalness = 0.94;
+    material.roughness = 0.2;
+    material.clearcoat = 0.7;
+    material.clearcoatRoughness = 0.1;
+  } else if (pieceTheme.kind === 'stone' || pieceTheme.kind === 'jade') {
+    material.metalness = 0.08;
+    material.roughness = pieceTheme.kind === 'jade' ? 0.22 : 0.42;
+    material.clearcoat = pieceTheme.kind === 'jade' ? 0.6 : 0.3;
+    material.clearcoatRoughness = 0.12;
+    if (pieceTheme.kind === 'jade') {
+      material.transmission = 0.16;
+      material.thickness = 0.5;
+      material.ior = 1.18;
+      material.transparent = true;
+      material.opacity = 0.98;
+    }
+  } else if (pieceTheme.kind === 'wood') {
+    material.roughness = 0.56;
+    material.clearcoat = 0.22;
+    material.clearcoatRoughness = 0.18;
+  } else if (pieceTheme.kind === 'ivory') {
+    material.roughness = 0.24;
+    material.clearcoat = 0.52;
+    material.clearcoatRoughness = 0.16;
+  }
+
+  material.needsUpdate = true;
+}
+
+function getActiveTheme() {
+  return THEMES[activeThemeKey];
+}
+
+function renderEnvironment(theme) {
+  const gradient = envCtx.createRadialGradient(256, 180, 10, 256, 256, 280);
+  gradient.addColorStop(0, theme.envStops[0]);
+  gradient.addColorStop(0.28, theme.envStops[1]);
+  gradient.addColorStop(0.7, theme.envStops[2]);
+  gradient.addColorStop(1, theme.envStops[3]);
+  envCtx.fillStyle = gradient;
+  envCtx.fillRect(0, 0, 512, 512);
+  envTexture.needsUpdate = true;
+  scene.fog.color.setHex(theme.fog);
+}
+
 squareLightMaterial.map = makeMarbleMap(0xecf6ff, 0x86bbd9);
 squareDarkMaterial.map = makeMarbleMap(0x1f2d44, 0x648fb4);
 
@@ -247,35 +558,17 @@ for (let rank = 0; rank < 8; rank += 1) {
   }
 }
 
-const floor = new THREE.Mesh(
-  new THREE.CircleGeometry(12, 72),
-  new THREE.ShadowMaterial({ opacity: 0.32 })
-);
+const floor = new THREE.Mesh(new THREE.CircleGeometry(12, 72), new THREE.ShadowMaterial({ opacity: 0.32 }));
 floor.rotation.x = -Math.PI / 2;
 floor.position.y = -0.68;
 floor.receiveShadow = true;
 scene.add(floor);
 
-camera.position.set(0, 13.6, 6.8);
-camera.lookAt(0, 0, 0);
-
 function createPieceMesh(pieceCode) {
-  const color = pieceCode[0] === 'w' ? 0xd9f4ff : 0x0d1a28;
-  const emissive = pieceCode[0] === 'w' ? 0x7fd6ff : 0x20476e;
-  const glassMaterial = new THREE.MeshPhysicalMaterial({
-    color,
-    emissive,
-    emissiveIntensity: pieceCode[0] === 'w' ? 0.18 : 0.1,
-    roughness: 0.04,
-    metalness: 0,
-    transmission: 0.76,
-    thickness: 1.3,
-    ior: 1.26,
-    clearcoat: 1,
-    clearcoatRoughness: 0.03,
-    transparent: true,
-    opacity: pieceCode[0] === 'w' ? 0.9 : 0.95,
-  });
+  const theme = getActiveTheme();
+  const pieceTheme = theme.pieces[pieceCode[0]];
+  const glassMaterial = new THREE.MeshPhysicalMaterial({});
+  configurePieceMaterial(glassMaterial, pieceTheme);
 
   const group = new THREE.Group();
   const type = pieceCode[1];
@@ -285,17 +578,13 @@ function createPieceMesh(pieceCode) {
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.52, 0.2, 36), glassMaterial);
   const body = new THREE.Mesh(new THREE.CylinderGeometry(topRadius, lowerRadius, bodyHeight, 42), glassMaterial);
   const collar = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.05, 14, 40), glassMaterial);
-  const cap = new THREE.Mesh(
-    type === 'p' ? new THREE.SphereGeometry(0.16, 28, 28) : new THREE.SphereGeometry(0.22, 28, 28),
-    glassMaterial
-  );
+  const cap = new THREE.Mesh(type === 'p' ? new THREE.SphereGeometry(0.16, 28, 28) : new THREE.SphereGeometry(0.22, 28, 28), glassMaterial);
 
   base.position.y = 0.11;
   body.position.y = 0.22 + bodyHeight / 2;
   collar.rotation.x = Math.PI / 2;
   collar.position.y = 0.28 + bodyHeight * (type === 'p' ? 0.58 : 0.76);
   cap.position.y = 0.28 + bodyHeight + (type === 'p' ? 0.13 : 0.18);
-
   group.add(base, body, collar, cap);
 
   if (type === 'p') {
@@ -367,6 +656,8 @@ function createPieceMesh(pieceCode) {
   group.userData.floatOffset = Math.random() * Math.PI * 2;
   group.userData.idleHeight = 0.02 + PIECE_VALUES[type] * 0.002;
   group.userData.animation = null;
+  group.userData.landing = null;
+  group.userData.side = pieceCode[0];
 
   group.traverse((node) => {
     if (node.isMesh) {
@@ -378,13 +669,47 @@ function createPieceMesh(pieceCode) {
   return group;
 }
 
+function applyThemeToPieces() {
+  const theme = getActiveTheme();
+  for (const mesh of pieceMeshes.values()) {
+    const side = mesh.userData.side;
+    const pieceTheme = theme.pieces[side];
+    mesh.traverse((node) => {
+      if (!node.isMesh) return;
+      configurePieceMaterial(node.material, pieceTheme);
+    });
+  }
+}
+
+function applyTheme() {
+  const theme = getActiveTheme();
+  document.documentElement.dataset.theme = activeThemeKey;
+  document.documentElement.style.setProperty('--accent', theme.accent);
+  document.documentElement.style.setProperty('--accent-warm', theme.accentWarm);
+
+  renderEnvironment(theme);
+  squareLightMaterial.color.setHex(theme.boardLight);
+  squareDarkMaterial.color.setHex(theme.boardDark);
+  squareLightMaterial.map = makeSurfaceMap(theme.lightSurface, theme.boardLight, theme.detailLight);
+  squareDarkMaterial.map = makeSurfaceMap(theme.darkSurface, theme.boardDark, theme.detailDark);
+  applyPhysicalMaterial(squareLightMaterial, theme.lightMaterial);
+  applyPhysicalMaterial(squareDarkMaterial, theme.darkMaterial);
+  squareLightMaterial.needsUpdate = true;
+  squareDarkMaterial.needsUpdate = true;
+
+  boardBase.material.color.setHex(theme.boardBase);
+  underGlow.material.color.setHex(theme.glow);
+  keyLight.color.setHex(theme.keyLight);
+  rimLight.color.setHex(theme.rimLight);
+  warmLight.color.setHex(theme.warmLight);
+  applyThemeToPieces();
+  updateThemeControls();
+}
+
 function squareToCoords(square) {
   const file = square.charCodeAt(0) - 97;
   const rank = Number(square[1]) - 1;
-  return {
-    x: file - half + 0.5,
-    z: rank - half + 0.5,
-  };
+  return { x: file - half + 0.5, z: rank - half + 0.5 };
 }
 
 function squareCenterWorld(square) {
@@ -437,6 +762,7 @@ function layoutPieceMesh(mesh, pieceCode, square, immediate = false) {
   if (immediate) {
     mesh.position.set(x, yBase, z);
     mesh.userData.animation = null;
+    mesh.userData.landing = null;
   } else {
     const from = mesh.position.clone();
     const to = new THREE.Vector3(x, yBase, z);
@@ -445,18 +771,17 @@ function layoutPieceMesh(mesh, pieceCode, square, immediate = false) {
       from,
       to,
       start: performance.now(),
-      duration: 260 + distance * 120,
-      arcHeight: 0.12 + distance * 0.06,
+      duration: 240 + distance * 115,
+      arcHeight: 0.16 + distance * 0.08,
     };
+    mesh.userData.landing = null;
   }
   mesh.userData.target = { x, y: yBase, z };
 }
 
 function removePieceAtSquare(square) {
   const mesh = pieceMeshes.get(square);
-  if (!mesh) {
-    return;
-  }
+  if (!mesh) return;
   piecesGroup.remove(mesh);
   pieceMeshes.delete(square);
 }
@@ -476,9 +801,7 @@ function rebuildPiecesFromBoard(immediate = true) {
   const board = chess.board();
   board.forEach((rank, rankIndex) => {
     rank.forEach((piece, fileIndex) => {
-      if (!piece) {
-        return;
-      }
+      if (!piece) return;
       const square = `${'abcdefgh'[fileIndex]}${8 - rankIndex}`;
       const pieceCode = `${piece.color}${piece.type}`;
       const mesh = createPieceMesh(pieceCode);
@@ -499,6 +822,70 @@ function updateMoveLog() {
   }
 }
 
+function clearBotTimer() {
+  if (botTimer) {
+    clearTimeout(botTimer);
+    botTimer = null;
+  }
+}
+
+function getModeLabel() {
+  return playerMode === 'pve' ? `PvE · ${botDifficulty}` : 'PvP';
+}
+
+function getGameConclusion() {
+  if (chess.isCheckmate()) {
+    const winner = chess.turn() === 'w' ? 'Black' : 'White';
+    return { headline: `${winner} wins`, detail: 'Checkmate ends the game.' };
+  }
+  if (chess.isStalemate()) {
+    return { headline: 'Draw', detail: 'Stalemate leaves no legal move.' };
+  }
+  if (chess.isThreefoldRepetition()) {
+    return { headline: 'Draw', detail: 'Threefold repetition ends the game.' };
+  }
+  if (chess.isInsufficientMaterial()) {
+    return { headline: 'Draw', detail: 'Insufficient material ends the game.' };
+  }
+  if (chess.isDraw()) {
+    return { headline: 'Draw', detail: 'The game is drawn.' };
+  }
+  return null;
+}
+
+function setOverlay(conclusion) {
+  if (!conclusion) {
+    gameOverlay.hidden = true;
+    return;
+  }
+  overlayHeadline.textContent = conclusion.headline;
+  overlayDetail.textContent = conclusion.detail;
+  gameOverlay.hidden = false;
+}
+
+function updateModeControls() {
+  modeControls.querySelectorAll('[data-mode]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.mode === playerMode);
+  });
+  difficultyControls.classList.toggle('disabled', playerMode !== 'pve');
+  difficultyControls.querySelectorAll('[data-difficulty]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.difficulty === botDifficulty);
+    button.disabled = playerMode !== 'pve';
+  });
+}
+
+function updateThemeControls() {
+  themeControls.querySelectorAll('[data-theme]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.theme === activeThemeKey);
+  });
+}
+
+function updateTurnVisuals(turn) {
+  turnHero.dataset.turn = turn;
+  whiteTurnPill.classList.toggle('active', turn === 'w');
+  blackTurnPill.classList.toggle('active', turn === 'b');
+}
+
 function getMoveText(move) {
   if (move.flags.includes('k')) return `${move.color === 'w' ? 'White' : 'Black'} castled kingside`;
   if (move.flags.includes('q')) return `${move.color === 'w' ? 'White' : 'Black'} castled queenside`;
@@ -508,36 +895,57 @@ function getMoveText(move) {
 }
 
 function updateStatus(extraMessage = '') {
-  const turn = chess.turn() === 'w' ? 'White' : 'Black';
-  turnLabel.textContent = turn;
-  let message = `${turn} to move`;
-  if (chess.isCheckmate()) {
-    message = `${turn === 'White' ? 'Black' : 'White'} wins by checkmate`;
-  } else if (chess.isStalemate()) {
-    message = 'Draw by stalemate';
-  } else if (chess.isThreefoldRepetition()) {
-    message = 'Draw by repetition';
-  } else if (chess.isInsufficientMaterial()) {
-    message = 'Draw by insufficient material';
-  } else if (chess.isDraw()) {
-    message = 'Draw';
+  const turn = chess.turn();
+  const turnName = turn === 'w' ? 'White' : 'Black';
+  turnLabel.textContent = turnName;
+  updateTurnVisuals(turn);
+  updateModeControls();
+
+  let statusMessage = `${turnName} to move`;
+  let promptMessage = `${turnName} controls the next move.`;
+  const conclusion = getGameConclusion();
+
+  if (conclusion) {
+    statusMessage = conclusion.detail;
+    promptMessage = conclusion.headline;
+  } else if (botThinking) {
+    statusMessage = `${turnName} engine thinking`;
+    promptMessage = `${turnName} engine is searching ${botDifficulty} lines.`;
+  } else if (playerMode === 'pve' && turn === BOT_COLOR) {
+    statusMessage = 'Black engine to move';
+    promptMessage = `PvE · ${botDifficulty} engine on move.`;
   } else if (chess.inCheck()) {
-    message = `${turn} king in check`;
+    statusMessage = `${turnName} king in check`;
+    promptMessage = `${turnName} must answer the check.`;
+  } else if (playerMode === 'pve') {
+    promptMessage = `Human vs engine · ${getModeLabel()}`;
   }
+
   if (extraMessage) {
-    message = `${message} · ${extraMessage}`;
+    statusMessage = `${statusMessage} · ${extraMessage}`;
   }
-  statusLabel.textContent = message;
-  hintLabel.textContent = chess.isGameOver()
-    ? 'Game complete. Reset to play again.'
-    : 'Special moves supported: castling, en passant, promotion to queen.';
+
+  statusLabel.textContent = statusMessage;
+  turnHeadline.textContent = conclusion ? conclusion.headline : `${turnName} to move`;
+  turnPrompt.textContent = promptMessage;
+  instructionLabel.textContent = botThinking
+    ? 'Hold the board. The engine is finishing its move.'
+    : playerMode === 'pve'
+      ? 'You control White. Click your piece, then a glowing destination square.'
+      : 'Click one of your pieces, then a glowing destination square.';
+  hintLabel.textContent = conclusion
+    ? conclusion.detail
+    : playerMode === 'pve'
+      ? `Mode: ${getModeLabel()} · Special moves: castling, en passant, promotion to queen.`
+      : 'Special moves supported: castling, en passant, promotion to queen.';
+
+  setOverlay(conclusion);
 }
 
 function selectSquare(square) {
   const piece = chess.get(square);
-  if (!piece || piece.color !== chess.turn()) {
-    return;
-  }
+  if (!piece || piece.color !== chess.turn()) return;
+  if (playerMode === 'pve' && chess.turn() === BOT_COLOR) return;
   selectedSquare = square;
   selectionLabel.textContent = `${PIECE_LABELS[`${piece.color}${piece.type}`]} on ${square}`;
   legalTargets.clear();
@@ -552,11 +960,110 @@ function clearSelection() {
   updateHighlights();
 }
 
-function applyMove(from, to) {
-  const move = chess.move({ from, to, promotion: 'q' });
-  if (!move) {
-    return false;
+function scoreMoveHeuristic(move) {
+  let score = 0;
+  if (move.captured) score += 12 * PIECE_VALUES[move.captured] - PIECE_VALUES[move.piece];
+  if (move.promotion) score += 14;
+  if (move.flags.includes('k') || move.flags.includes('q')) score += 4;
+  if (move.san.includes('+')) score += 3;
+  if (move.san.includes('#')) score += 200;
+  return score;
+}
+
+function evaluateBoard(game, perspective) {
+  if (game.isCheckmate()) return game.turn() === perspective ? -100000 : 100000;
+  if (game.isDraw()) return 0;
+
+  let score = 0;
+  const board = game.board();
+  board.forEach((rank, rankIndex) => {
+    rank.forEach((piece, fileIndex) => {
+      if (!piece) return;
+      const sign = piece.color === perspective ? 1 : -1;
+      const center = 3.5 - (Math.abs(fileIndex - 3.5) + Math.abs(rankIndex - 3.5)) / 2;
+      const advancement = piece.type === 'p'
+        ? (piece.color === 'w' ? 7 - rankIndex : rankIndex) * 0.08
+        : 0;
+      score += sign * (PIECE_VALUES[piece.type] * 100 + center * 6 + advancement * 10);
+    });
+  });
+
+  const mobility = game.moves().length;
+  score += (game.turn() === perspective ? 1 : -1) * mobility * 0.8;
+  return score;
+}
+
+function searchBestScore(game, depth, alpha, beta, perspective) {
+  if (depth === 0 || game.isGameOver()) return evaluateBoard(game, perspective);
+
+  const moves = game.moves({ verbose: true }).sort((a, b) => scoreMoveHeuristic(b) - scoreMoveHeuristic(a));
+  const maximizing = game.turn() === perspective;
+
+  if (maximizing) {
+    let best = -Infinity;
+    for (const move of moves) {
+      game.move(move);
+      best = Math.max(best, searchBestScore(game, depth - 1, alpha, beta, perspective));
+      game.undo();
+      alpha = Math.max(alpha, best);
+      if (beta <= alpha) break;
+    }
+    return best;
   }
+
+  let best = Infinity;
+  for (const move of moves) {
+    game.move(move);
+    best = Math.min(best, searchBestScore(game, depth - 1, alpha, beta, perspective));
+    game.undo();
+    beta = Math.min(beta, best);
+    if (beta <= alpha) break;
+  }
+  return best;
+}
+
+function chooseBotMove() {
+  const settings = DIFFICULTY_SETTINGS[botDifficulty];
+  const sandbox = new Chess(chess.fen());
+  const moves = sandbox.moves({ verbose: true }).sort((a, b) => scoreMoveHeuristic(b) - scoreMoveHeuristic(a));
+  if (!moves.length) return null;
+
+  const scoredMoves = moves.map((move) => {
+    sandbox.move(move);
+    const score = searchBestScore(sandbox, settings.depth - 1, -Infinity, Infinity, BOT_COLOR);
+    sandbox.undo();
+    const noise = settings.randomness ? Math.random() * settings.randomness : 0;
+    return { move, score: score + noise };
+  }).sort((a, b) => b.score - a.score);
+
+  if (settings.randomness > 0) {
+    const pool = scoredMoves.slice(0, Math.min(3, scoredMoves.length));
+    return pool[Math.floor(Math.random() * pool.length)].move;
+  }
+
+  return scoredMoves[0].move;
+}
+
+function scheduleBotTurn() {
+  clearBotTimer();
+  if (playerMode !== 'pve' || chess.isGameOver() || chess.turn() !== BOT_COLOR) return;
+  botThinking = true;
+  updateStatus();
+  botTimer = setTimeout(() => {
+    botTimer = null;
+    const move = chooseBotMove();
+    botThinking = false;
+    if (!move) {
+      updateStatus();
+      return;
+    }
+    applyMove(move.from, move.to, move.promotion ?? 'q');
+  }, DIFFICULTY_SETTINGS[botDifficulty].thinkMs);
+}
+
+function applyMove(from, to, promotion = 'q') {
+  const move = chess.move({ from, to, promotion });
+  if (!move) return false;
 
   const movingPieceCode = `${move.color}${move.piece}`;
   let movingMesh = pieceMeshes.get(from);
@@ -579,8 +1086,8 @@ function applyMove(from, to) {
   }
 
   if (move.flags.includes('k') || move.flags.includes('q')) {
-    const rookFrom = move.flags.includes('k') ? `${move.color === 'w' ? 'h1' : 'h8'}` : `${move.color === 'w' ? 'a1' : 'a8'}`;
-    const rookTo = move.flags.includes('k') ? `${move.color === 'w' ? 'f1' : 'f8'}` : `${move.color === 'w' ? 'd1' : 'd8'}`;
+    const rookFrom = move.flags.includes('k') ? (move.color === 'w' ? 'h1' : 'h8') : (move.color === 'w' ? 'a1' : 'a8');
+    const rookTo = move.flags.includes('k') ? (move.color === 'w' ? 'f1' : 'f8') : (move.color === 'w' ? 'd1' : 'd8');
     const rookMesh = pieceMeshes.get(rookFrom);
     if (rookMesh) {
       pieceMeshes.delete(rookFrom);
@@ -602,13 +1109,16 @@ function applyMove(from, to) {
   updateMoveLog();
   syncCaptured();
   updateStatus(getMoveText(move));
+  scheduleBotTurn();
   return true;
 }
 
+function isHumanTurn() {
+  return !(playerMode === 'pve' && chess.turn() === BOT_COLOR);
+}
+
 function trySquareClick(square) {
-  if (chess.isGameOver()) {
-    return;
-  }
+  if (chess.isGameOver() || botThinking || !isHumanTurn()) return;
   if (!selectedSquare) {
     selectSquare(square);
     return;
@@ -617,9 +1127,7 @@ function trySquareClick(square) {
     clearSelection();
     return;
   }
-  if (legalTargets.has(square) && applyMove(selectedSquare, square)) {
-    return;
-  }
+  if (legalTargets.has(square) && applyMove(selectedSquare, square)) return;
   selectSquare(square);
 }
 
@@ -634,47 +1142,103 @@ function onPointer(event) {
   const hit = hits[0].object;
   let square = hit.userData.square;
   if (!square && hit.parent) square = hit.parent.userData.square;
-  if (square) {
-    trySquareClick(square);
-  }
+  if (square) trySquareClick(square);
 }
 
 canvas.addEventListener('pointerdown', onPointer);
+
+document.querySelector('#resetButton').addEventListener('click', () => resetGame());
+document.querySelector('#overlayResetButton').addEventListener('click', () => resetGame());
+document.querySelector('#flipButton').addEventListener('click', () => {
+  boardFlipped = !boardFlipped;
+  updateBoardOrientation();
+  relayoutPieces(true);
+  resize();
+});
+
+modeControls.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-mode]');
+  if (!button || button.dataset.mode === playerMode) return;
+  playerMode = button.dataset.mode;
+  resetGame();
+});
+
+difficultyControls.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-difficulty]');
+  if (!button || button.dataset.difficulty === botDifficulty) return;
+  botDifficulty = button.dataset.difficulty;
+  if (playerMode === 'pve') {
+    resetGame();
+  } else {
+    updateModeControls();
+    updateStatus();
+  }
+});
+
+themeControls.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-theme]');
+  if (!button || button.dataset.theme === activeThemeKey) return;
+  activeThemeKey = button.dataset.theme;
+  applyTheme();
+});
 
 function updateBoardOrientation() {
   root.rotation.y = boardFlipped ? Math.PI : 0;
 }
 
-function resize() {
-  const wrap = canvas.parentElement;
-  const width = wrap.clientWidth;
-  const height = wrap.clientHeight;
-  renderer.setSize(width, height, false);
-  camera.aspect = width / height;
+function updateCameraFit(width, height) {
+  const size = Math.max(1, Math.min(width, height));
+  const scale = THREE.MathUtils.clamp(900 / size, 0.74, 1.28);
+  camera.fov = THREE.MathUtils.clamp(38 + (scale - 1) * 14, 34, 52);
+  camera.position.set(0, 13.4 * scale, 6.8 * scale);
+  camera.lookAt(0, 0, 0);
   camera.updateProjectionMatrix();
 }
 
+function resize() {
+  const wrapStyle = window.getComputedStyle(boardWrap);
+  const rowGap = Number.parseFloat(wrapStyle.rowGap || wrapStyle.gap || '0') || 0;
+  const verticalPadding = (Number.parseFloat(wrapStyle.paddingTop || '0') || 0) + (Number.parseFloat(wrapStyle.paddingBottom || '0') || 0);
+  const availableWidth = boardWrap.clientWidth;
+  const availableHeight = boardWrap.clientHeight - verticalPadding - legend.getBoundingClientRect().height - rowGap;
+  const size = Math.max(280, Math.floor(Math.min(availableWidth, availableHeight)));
+  boardStage.style.width = `${size}px`;
+  boardStage.style.height = `${size}px`;
+  const width = boardStage.clientWidth;
+  const height = boardStage.clientHeight;
+  renderer.setSize(width, height, false);
+  camera.aspect = width / height;
+  updateCameraFit(width, height);
+}
+
 window.addEventListener('resize', resize);
+const resizeObserver = new ResizeObserver(() => resize());
+resizeObserver.observe(boardWrap);
 
 function animate() {
   requestAnimationFrame(animate);
   const time = performance.now() * 0.001;
+  const now = performance.now();
   boardBase.rotation.y = Math.sin(time * 0.2) * 0.01;
-  rim.material.emissiveIntensity = 0.15 + Math.sin(time * 2.5) * 0.04;
+  underGlow.material.opacity = 0.08 + (Math.sin(time * 2.2) + 1) * 0.025;
 
   for (const mesh of pieceMeshes.values()) {
     const animation = mesh.userData.animation;
+    const landing = mesh.userData.landing;
     const target = mesh.userData.target;
     if (!target) continue;
 
     if (animation) {
-      const elapsed = performance.now() - animation.start;
+      const elapsed = now - animation.start;
       const t = Math.min(elapsed / animation.duration, 1);
-      const eased = 1 - ((1 - t) ** 3);
-      mesh.position.lerpVectors(animation.from, animation.to, eased);
+      const eased = 1 - ((1 - t) ** 4);
+      const overshoot = eased + 0.06 * Math.sin(Math.PI * eased) * (1 - eased);
+      mesh.position.lerpVectors(animation.from, animation.to, overshoot);
       mesh.position.y += Math.sin(Math.PI * eased) * animation.arcHeight;
       if (t >= 1) {
         mesh.userData.animation = null;
+        mesh.userData.landing = { start: now, duration: 180 };
+        mesh.position.set(target.x, target.y, target.z);
       }
     } else {
       const drift = Math.sin(time * 1.8 + mesh.userData.floatOffset) * mesh.userData.idleHeight;
@@ -684,12 +1248,28 @@ function animate() {
     }
 
     mesh.rotation.y += (Math.sin(time * 0.8 + mesh.userData.floatOffset) * 0.08 - mesh.rotation.y) * 0.08;
+    if (landing) {
+      const t = Math.min((now - landing.start) / landing.duration, 1);
+      const snap = Math.sin(t * Math.PI);
+      mesh.scale.set(1 + snap * 0.09, 1 - snap * 0.16, 1 + snap * 0.09);
+      mesh.position.y -= snap * 0.035;
+      if (t >= 1) {
+        mesh.userData.landing = null;
+        mesh.scale.set(1, 1, 1);
+      }
+    } else {
+      mesh.scale.x += (1 - mesh.scale.x) * 0.18;
+      mesh.scale.y += (1 - mesh.scale.y) * 0.18;
+      mesh.scale.z += (1 - mesh.scale.z) * 0.18;
+    }
   }
 
   renderer.render(scene, camera);
 }
 
 function resetGame() {
+  clearBotTimer();
+  botThinking = false;
   chess.reset();
   selectedSquare = null;
   lastMoveSquares = [];
@@ -700,8 +1280,26 @@ function resetGame() {
   updateMoveLog();
   syncCaptured();
   updateHighlights();
-  updateStatus();
   selectionLabel.textContent = 'None';
+  updateStatus();
+  scheduleBotTurn();
+}
+
+function loadFenForDebug(fen) {
+  clearBotTimer();
+  botThinking = false;
+  chess.load(fen);
+  selectedSquare = null;
+  lastMoveSquares = [];
+  legalTargets.clear();
+  captureState.w = [];
+  captureState.b = [];
+  rebuildPiecesFromBoard(true);
+  updateMoveLog();
+  syncCaptured();
+  updateHighlights();
+  selectionLabel.textContent = 'None';
+  updateStatus();
 }
 
 function projectWorldPoint(point3d) {
@@ -720,8 +1318,7 @@ function projectSquare(square, mode = 'auto') {
   const pieceMesh = pieceMeshes.get(square);
   const usePiecePoint = mode === 'piece' || (mode === 'auto' && pieceMesh);
   if (usePiecePoint && pieceMesh) {
-    const piecePoint = pieceMesh.localToWorld(new THREE.Vector3(0, 0.9, 0));
-    return projectWorldPoint(piecePoint);
+    return projectWorldPoint(pieceMesh.localToWorld(new THREE.Vector3(0, 0.9, 0)));
   }
   const squareMesh = squareMeshes.get(square);
   if (squareMesh) {
@@ -742,15 +1339,30 @@ window.__chessDebug = {
     return piece ? `${piece.color}${piece.type}` : null;
   },
   isGameOver: () => chess.isGameOver(),
+  getUiState: () => ({
+    playerMode,
+    botDifficulty,
+    activeThemeKey,
+    botThinking,
+    overlayVisible: !gameOverlay.hidden,
+    selection: selectionLabel.textContent,
+  }),
+  setFen: (fen) => loadFenForDebug(fen),
   boardMetrics: () => ({
     viewport: { width: window.innerWidth, height: window.innerHeight },
+    shell: document.querySelector('.shell').getBoundingClientRect(),
     canvas: canvas.getBoundingClientRect(),
+    stage: boardStage.getBoundingClientRect(),
     hud: document.querySelector('.hud').getBoundingClientRect(),
     legend: document.querySelector('.legend').getBoundingClientRect(),
+    overlay: gameOverlay.getBoundingClientRect(),
+    canScrollX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    canScrollY: document.documentElement.scrollHeight > document.documentElement.clientHeight,
   }),
 };
 
-resize();
 updateBoardOrientation();
+applyTheme();
+resize();
 resetGame();
 animate();
