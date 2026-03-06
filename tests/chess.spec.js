@@ -13,6 +13,7 @@ const QA_INVENTORY = {
     'The board remains fully visible and fit to the window after resizing',
     'Players can click pieces and destination squares to move legally',
     'The active side is visually obvious',
+    'Pieces can also be moved by dragging them to a legal square',
     'Undo and redo restore the expected board state',
     'Flip board preserves interaction fidelity',
     'PvE mode responds with a bot move at the selected difficulty',
@@ -44,6 +45,16 @@ async function clickSquare(window, square, mode = 'auto') {
     { sq: square, clickMode: mode }
   );
   await window.mouse.click(point.x, point.y);
+}
+
+async function dragSquare(window, from, to) {
+  const start = await window.evaluate((sq) => window.__chessDebug.getSquareScreenPosition(sq, 'piece'), from);
+  const end = await window.evaluate((sq) => window.__chessDebug.getSquareScreenPosition(sq, 'square'), to);
+  await window.mouse.move(start.x, start.y);
+  await window.mouse.down();
+  await window.mouse.move((start.x + end.x) / 2, (start.y + end.y) / 2, { steps: 8 });
+  await window.mouse.move(end.x, end.y, { steps: 8 });
+  await window.mouse.up();
 }
 
 async function playMoves(window, moves) {
@@ -112,8 +123,7 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await window.evaluate(() => window.__chessDebug.clickSquare('b1'));
   await expect(window.locator('#selectionLabel')).toHaveText('None');
 
-  await window.evaluate(() => window.__chessDebug.clickSquare('b1'));
-  await window.evaluate(() => window.__chessDebug.clickSquare('c3'));
+  await dragSquare(window, 'b1', 'c3');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('c3'))).toBe('wn');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().canUndo)).toBeTruthy();
   await window.locator('#undoButton').click();

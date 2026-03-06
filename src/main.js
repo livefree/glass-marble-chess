@@ -267,6 +267,7 @@ let lastMoveSquares = [];
 let botThinking = false;
 let botTimer = null;
 let pendingPromotion = null;
+let dragState = null;
 const redoStack = [];
 const captureState = { w: [], b: [] };
 
@@ -320,6 +321,7 @@ scene.background = envTexture;
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
+const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.95);
 const boardSize = 8;
 const squareSize = 1;
 const half = boardSize / 2;
@@ -381,6 +383,13 @@ const lastMoveMaterial = new THREE.MeshPhysicalMaterial({
   emissive: 0x4638a9,
   emissiveIntensity: 0.7,
   roughness: 0.12,
+  clearcoat: 1,
+});
+const checkMaterial = new THREE.MeshPhysicalMaterial({
+  color: 0xff8d8d,
+  emissive: 0xaa2222,
+  emissiveIntensity: 0.86,
+  roughness: 0.1,
   clearcoat: 1,
 });
 
@@ -742,6 +751,50 @@ function squareCenterWorld(square) {
   return new THREE.Vector3(coords.x, 0.42, coords.z);
 }
 
+function updatePointerFromEvent(event) {
+  const rect = canvas.getBoundingClientRect();
+  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+}
+
+function getHitSquare(ignoredObject = null) {
+  const targets = [...pieceMeshes.values(), ...squareMeshes.values()];
+  const hits = raycaster.intersectObjects(targets, true).filter((hit) => {
+    if (!ignoredObject) return true;
+    return hit.object !== ignoredObject && hit.object.parent !== ignoredObject;
+  });
+  if (!hits.length) return null;
+  const hit = hits[0].object;
+  let square = hit.userData.square;
+  if (!square && hit.parent) square = hit.parent.userData.square;
+  return square ?? null;
+}
+
+function getDragPoint(event) {
+  updatePointerFromEvent(event);
+  const worldPoint = new THREE.Vector3();
+  const hit = raycaster.ray.intersectPlane(dragPlane, worldPoint);
+  if (!hit) return null;
+  const localPoint = root.worldToLocal(worldPoint.clone());
+  localPoint.x = THREE.MathUtils.clamp(localPoint.x, -3.9, 3.9);
+  localPoint.z = THREE.MathUtils.clamp(localPoint.z, -3.9, 3.9);
+  return localPoint;
+}
+
+function findKingSquare(color) {
+  const board = chess.board();
+  for (let rankIndex = 0; rankIndex < board.length; rankIndex += 1) {
+    const rank = board[rankIndex];
+    for (let fileIndex = 0; fileIndex < rank.length; fileIndex += 1) {
+      const piece = rank[fileIndex];
+      if (!piece || piece.color !== color || piece.type !== 'k') continue;
+      return `${'abcdefgh'[fileIndex]}${8 - rankIndex}`;
+    }
+  }
+  return null;
+}
+
 function clearHighlights() {
   for (const mesh of squareMeshes.values()) {
     mesh.material = mesh.userData.baseMaterial;
@@ -770,6 +823,14 @@ function updateHighlights() {
     if (mesh) {
       mesh.material = legalMaterial;
       mesh.position.y = 0.06;
+    }
+  }
+  if (chess.inCheck() && !getGameConclusion()) {
+    const kingSquare = findKingSquare(chess.turn());
+    const mesh = kingSquare ? squareMeshes.get(kingSquare) : null;
+    if (mesh) {
+      mesh.material = checkMaterial;
+      mesh.position.y = 0.08;
     }
   }
 }
@@ -1299,21 +1360,83 @@ function trySquareClick(square) {
   selectSquare(square);
 }
 
-function onPointer(event) {
-  const rect = canvas.getBoundingClientRect();
-  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(pointer, camera);
-  const targets = [...pieceMeshes.values(), ...squareMeshes.values()];
-  const hits = raycaster.intersectObjects(targets, true);
-  if (!hits.length) return;
-  const hit = hits[0].object;
-  let square = hit.userData.square;
-  if (!square && hit.parent) square = hit.parent.userData.square;
-  if (square) trySquareClick(square);
+function onPointerDown(event) {
+  if (chess.isGameOver() || botThinking || !isHumanTurn() || pendingPromotion) return;
+  updatePointerFromEvent(event);
+  const square = getHitSquare();
+  if (!square) return;
+  const piece = chess.get(square);
+  const ownTurnPiece = piece && piece.color === chess.turn();
+  if (ownTurnPiece) selectSquare(square);
+  const mesh = ownTurnPiece ? pieceMeshes.get(square) : null;
+  dragState = {
+    pointerId: event.pointerId,
+    square,
+    mesh,
+    startX: event.clientX,
+    startY: event.clientY,
+    dragged: false,
+  };
+  canvas.style.cursor = 'grabbing';
+  canvas.setPointerCapture?.(event.pointerId);
 }
 
-canvas.addEventListener('pointerdown', onPointer);
+function onPointerMove(event) {
+  if (!dragState || dragState.pointerId !== event.pointerId) return;
+  if (!dragState.mesh) return;
+  const movement = Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY);
+  if (!dragState.dragged && movement < 8) return;
+  const dragPoint = getDragPoint(event);
+  if (!dragPoint) return;
+  dragState.dragged = true;
+  dragState.mesh.userData.animation = null;
+  dragState.mesh.userData.landing = null;
+  dragState.mesh.position.set(dragPoint.x, 0.9, dragPoint.z);
+}
+
+function onPointerUp(event) {
+  const activeDrag = dragState;
+  dragState = null;
+  canvas.style.cursor = '';
+  if (!activeDrag || activeDrag.pointerId !== event.pointerId) return;
+  updatePointerFromEvent(event);
+  const square = getHitSquare(activeDrag.mesh);
+  canvas.releasePointerCapture?.(event.pointerId);
+  if (activeDrag.dragged) {
+    const targetSquare = square ?? activeDrag.square;
+    if (targetSquare && selectedSquare === activeDrag.square && legalTargets.has(targetSquare)) {
+      const moves = legalMovesByTarget.get(targetSquare) ?? [];
+      if (moves.some((move) => move.promotion)) {
+        layoutPieceMesh(activeDrag.mesh, activeDrag.mesh.userData.pieceCode, activeDrag.square, false);
+        showPromotionOverlay(activeDrag.square, targetSquare, chess.turn());
+        updateStatus();
+        updateHighlights();
+        return;
+      }
+      if (applyMove(activeDrag.square, targetSquare)) return;
+    }
+    layoutPieceMesh(activeDrag.mesh, activeDrag.mesh.userData.pieceCode, activeDrag.square, false);
+    updateHighlights();
+    return;
+  }
+  if (square ?? activeDrag.square) trySquareClick(square ?? activeDrag.square);
+}
+
+function onPointerCancel(event) {
+  if (!dragState || dragState.pointerId !== event.pointerId) return;
+  const { mesh, square } = dragState;
+  dragState = null;
+  canvas.style.cursor = '';
+  canvas.releasePointerCapture?.(event.pointerId);
+  if (!mesh) return;
+  layoutPieceMesh(mesh, mesh.userData.pieceCode, square, false);
+  updateHighlights();
+}
+
+canvas.addEventListener('pointerdown', onPointerDown);
+canvas.addEventListener('pointermove', onPointerMove);
+canvas.addEventListener('pointerup', onPointerUp);
+canvas.addEventListener('pointercancel', onPointerCancel);
 
 document.querySelector('#resetButton').addEventListener('click', () => resetGame());
 document.querySelector('#overlayResetButton').addEventListener('click', () => resetGame());
