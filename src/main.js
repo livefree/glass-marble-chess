@@ -703,6 +703,7 @@ function createPieceMesh(pieceCode) {
   group.userData.idleHeight = 0.02 + PIECE_VALUES[type] * 0.002;
   group.userData.animation = null;
   group.userData.landing = null;
+  group.userData.dragging = false;
   group.userData.side = pieceCode[0];
 
   group.traverse((node) => {
@@ -887,6 +888,7 @@ function layoutPieceMesh(mesh, pieceCode, square, immediate = false) {
     };
     mesh.userData.landing = null;
   }
+  mesh.userData.dragging = false;
   mesh.userData.target = { x, y: yBase, z };
 }
 
@@ -1420,6 +1422,7 @@ function onPointerMove(event) {
   }
   const dragPoint = getDragPoint(event);
   if (!dragPoint) return;
+  dragState.mesh.userData.dragging = true;
   dragState.mesh.userData.animation = null;
   dragState.mesh.userData.landing = null;
   dragState.mesh.position.set(dragPoint.x, 0.9, dragPoint.z);
@@ -1439,6 +1442,7 @@ function onPointerUp(event) {
     if (targetSquare && selectedSquare === activeDrag.square && legalTargets.has(targetSquare)) {
       const moves = legalMovesByTarget.get(targetSquare) ?? [];
       if (moves.some((move) => move.promotion)) {
+        activeDrag.mesh.userData.dragging = false;
         layoutPieceMesh(activeDrag.mesh, activeDrag.mesh.userData.pieceCode, activeDrag.square, false);
         showPromotionOverlay(activeDrag.square, targetSquare, chess.turn());
         updateStatus();
@@ -1447,6 +1451,7 @@ function onPointerUp(event) {
       }
       if (applyMove(activeDrag.square, targetSquare)) return;
     }
+    activeDrag.mesh.userData.dragging = false;
     layoutPieceMesh(activeDrag.mesh, activeDrag.mesh.userData.pieceCode, activeDrag.square, false);
     updateHighlights();
     return;
@@ -1461,6 +1466,7 @@ function onPointerCancel(event) {
   canvas.style.cursor = '';
   canvas.releasePointerCapture?.(event.pointerId);
   if (!mesh) return;
+  mesh.userData.dragging = false;
   layoutPieceMesh(mesh, mesh.userData.pieceCode, square, false);
   updateHighlights();
 }
@@ -1581,6 +1587,10 @@ function animate() {
     const landing = mesh.userData.landing;
     const target = mesh.userData.target;
     if (!target) continue;
+    if (mesh.userData.dragging) {
+      mesh.rotation.y += (Math.sin(time * 0.8 + mesh.userData.floatOffset) * 0.08 - mesh.rotation.y) * 0.08;
+      continue;
+    }
 
     if (animation) {
       const elapsed = now - animation.start;
