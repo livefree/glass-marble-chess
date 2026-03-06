@@ -14,6 +14,82 @@ const DIFFICULTY_SETTINGS = {
   medium: { depth: 2, thinkMs: 420, randomness: 8 },
   hard: { depth: 3, thinkMs: 560, randomness: 0 },
 };
+const OPENING_BOOK = {
+  'e4': ['e5', 'c5', 'e6'],
+  'd4': ['Nf6', 'd5', 'e6'],
+  'c4': ['e5', 'c5'],
+  'Nf3': ['Nf6', 'd5'],
+  'e4 e5 Nf3': ['Nc6'],
+  'e4 e5 Nf3 Nc6 Bc4': ['Bc5'],
+  'e4 e5 Nf3 Nc6 Bb5': ['a6'],
+  'e4 c5 Nf3': ['d6'],
+  'e4 c5 Nf3 d6 d4': ['cxd4'],
+  'd4 Nf6 c4': ['e6', 'g6'],
+  'd4 d5 c4': ['e6'],
+  'd4 Nf6 Nf3': ['d5'],
+};
+const PIECE_SQUARE_TABLES = {
+  p: [
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [50, 50, 50, 50, 50, 50, 50, 50],
+    [10, 10, 18, 28, 28, 18, 10, 10],
+    [6, 6, 12, 24, 24, 12, 6, 6],
+    [0, 0, 0, 22, 22, 0, 0, 0],
+    [4, -2, -8, 6, 6, -8, -2, 4],
+    [4, 8, 8, -20, -20, 8, 8, 4],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+  ],
+  n: [
+    [-40, -22, -14, -14, -14, -14, -22, -40],
+    [-24, -6, 0, 4, 4, 0, -6, -24],
+    [-14, 6, 14, 18, 18, 14, 6, -14],
+    [-10, 12, 20, 24, 24, 20, 12, -10],
+    [-10, 6, 18, 22, 22, 18, 6, -10],
+    [-14, 8, 12, 14, 14, 12, 8, -14],
+    [-24, -4, 2, 8, 8, 2, -4, -24],
+    [-40, -22, -14, -14, -14, -14, -22, -40],
+  ],
+  b: [
+    [-16, -8, -8, -8, -8, -8, -8, -16],
+    [-8, 4, 0, 4, 4, 0, 4, -8],
+    [-8, 8, 10, 12, 12, 10, 8, -8],
+    [-8, 0, 12, 14, 14, 12, 0, -8],
+    [-8, 6, 10, 14, 14, 10, 6, -8],
+    [-8, 8, 8, 10, 10, 8, 8, -8],
+    [-8, 6, 2, 2, 2, 2, 6, -8],
+    [-16, -8, -8, -8, -8, -8, -8, -16],
+  ],
+  r: [
+    [0, 0, 4, 8, 8, 4, 0, 0],
+    [-4, 0, 0, 0, 0, 0, 0, -4],
+    [-4, 0, 0, 0, 0, 0, 0, -4],
+    [-4, 0, 0, 0, 0, 0, 0, -4],
+    [-4, 0, 0, 0, 0, 0, 0, -4],
+    [-4, 0, 0, 0, 0, 0, 0, -4],
+    [8, 12, 12, 12, 12, 12, 12, 8],
+    [0, 0, 4, 8, 8, 4, 0, 0],
+  ],
+  q: [
+    [-12, -8, -8, -4, -4, -8, -8, -12],
+    [-8, 0, 0, 0, 0, 0, 0, -8],
+    [-8, 0, 6, 6, 6, 6, 0, -8],
+    [-4, 0, 6, 8, 8, 6, 0, -4],
+    [0, 0, 6, 8, 8, 6, 0, -4],
+    [-8, 6, 6, 6, 6, 6, 0, -8],
+    [-8, 0, 6, 0, 0, 0, 0, -8],
+    [-12, -8, -8, -4, -4, -8, -8, -12],
+  ],
+  k: [
+    [-30, -38, -38, -44, -44, -38, -38, -30],
+    [-30, -38, -38, -44, -44, -38, -38, -30],
+    [-30, -38, -38, -44, -44, -38, -38, -30],
+    [-30, -38, -38, -44, -44, -38, -38, -30],
+    [-18, -28, -28, -34, -34, -28, -28, -18],
+    [-8, -18, -18, -22, -22, -18, -18, -8],
+    [18, 18, 0, -8, -8, 0, 18, 18],
+    [24, 32, 12, 0, 0, 12, 32, 24],
+  ],
+};
 const TIME_CONTROLS = {
   untimed: { label: 'Untimed', ms: null },
   blitz1: { label: '1 min', ms: 60_000 },
@@ -1346,12 +1422,49 @@ function scoreMoveHeuristic(move) {
   return score;
 }
 
+function getPieceSquareBonus(piece, rankIndex, fileIndex) {
+  const table = PIECE_SQUARE_TABLES[piece.type];
+  if (!table) return 0;
+  const lookupRank = piece.color === 'w' ? rankIndex : 7 - rankIndex;
+  return table[lookupRank][fileIndex];
+}
+
+function isPassedPawn(board, rankIndex, fileIndex, color) {
+  const direction = color === 'w' ? -1 : 1;
+  for (let nextRank = rankIndex + direction; nextRank >= 0 && nextRank < 8; nextRank += direction) {
+    for (let nextFile = Math.max(0, fileIndex - 1); nextFile <= Math.min(7, fileIndex + 1); nextFile += 1) {
+      const piece = board[nextRank][nextFile];
+      if (piece && piece.type === 'p' && piece.color !== color) return false;
+    }
+  }
+  return true;
+}
+
+function getOpeningBookMove() {
+  const history = chess.history();
+  const key = history.join(' ');
+  const options = OPENING_BOOK[key];
+  if (!options?.length || chess.turn() !== BOT_COLOR) return null;
+
+  const legalMoves = chess.moves({ verbose: true });
+  const candidates = options
+    .map((san) => legalMoves.find((move) => move.san === san))
+    .filter(Boolean);
+  if (!candidates.length) return null;
+
+  if (botDifficulty === 'hard') return candidates[0];
+  const pool = botDifficulty === 'medium' ? candidates.slice(0, Math.min(2, candidates.length)) : candidates;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 function evaluateBoard(game, perspective) {
   if (game.isCheckmate()) return game.turn() === perspective ? -100000 : 100000;
   if (game.isDraw()) return 0;
 
   let score = 0;
   const board = game.board();
+  const bishopCount = { w: 0, b: 0 };
+  const pawnFiles = { w: Array(8).fill(0), b: Array(8).fill(0) };
   board.forEach((rank, rankIndex) => {
     rank.forEach((piece, fileIndex) => {
       if (!piece) return;
@@ -1360,12 +1473,30 @@ function evaluateBoard(game, perspective) {
       const advancement = piece.type === 'p'
         ? (piece.color === 'w' ? 7 - rankIndex : rankIndex) * 0.08
         : 0;
-      score += sign * (PIECE_VALUES[piece.type] * 100 + center * 6 + advancement * 10);
+      const pieceSquare = getPieceSquareBonus(piece, rankIndex, fileIndex);
+      score += sign * (PIECE_VALUES[piece.type] * 100 + center * 6 + advancement * 10 + pieceSquare);
+      if (piece.type === 'b') bishopCount[piece.color] += 1;
+      if (piece.type === 'p') {
+        pawnFiles[piece.color][fileIndex] += 1;
+        if (isPassedPawn(board, rankIndex, fileIndex, piece.color)) {
+          const passedBonus = piece.color === 'w' ? (7 - rankIndex) * 10 : rankIndex * 10;
+          score += sign * (14 + passedBonus);
+        }
+      }
     });
   });
 
+  if (bishopCount.w >= 2) score += perspective === 'w' ? 36 : -36;
+  if (bishopCount.b >= 2) score += perspective === 'b' ? 36 : -36;
+
+  for (let fileIndex = 0; fileIndex < 8; fileIndex += 1) {
+    if (pawnFiles.w[fileIndex] > 1) score += perspective === 'w' ? -14 * (pawnFiles.w[fileIndex] - 1) : 14 * (pawnFiles.w[fileIndex] - 1);
+    if (pawnFiles.b[fileIndex] > 1) score += perspective === 'b' ? -14 * (pawnFiles.b[fileIndex] - 1) : 14 * (pawnFiles.b[fileIndex] - 1);
+  }
+
   const mobility = game.moves().length;
   score += (game.turn() === perspective ? 1 : -1) * mobility * 0.8;
+  if (game.inCheck()) score += game.turn() === perspective ? -26 : 26;
   return score;
 }
 
@@ -1399,6 +1530,9 @@ function searchBestScore(game, depth, alpha, beta, perspective) {
 }
 
 function chooseBotMove() {
+  const bookMove = getOpeningBookMove();
+  if (bookMove) return bookMove;
+
   const settings = DIFFICULTY_SETTINGS[botDifficulty];
   const sandbox = new Chess(chess.fen());
   const moves = sandbox.moves({ verbose: true }).sort((a, b) => scoreMoveHeuristic(b) - scoreMoveHeuristic(a));

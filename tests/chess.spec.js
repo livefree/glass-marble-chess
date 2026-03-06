@@ -18,6 +18,7 @@ const QA_INVENTORY = {
     'Undo and redo restore the expected board state',
     'Flip board preserves interaction fidelity',
     'PvE mode responds with a bot move at the selected difficulty',
+    'Hard PvE uses stable opening-book replies in the opening',
     'Castling works through normal board interaction',
     'En passant works through normal board interaction',
     'Promotion requires a piece choice and uses the chosen piece',
@@ -170,6 +171,15 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getTurn())).toBe('w');
   await window.locator('#redoButton').click();
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog().length)).toBe(2);
+
+  await window.locator('#resetButton').click();
+  await window.locator('[data-difficulty="hard"]').click();
+  await window.evaluate(() => window.__chessDebug.clickSquare('e2'));
+  await window.evaluate(() => window.__chessDebug.clickSquare('e4'));
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog())).toEqual(['e4', 'e5']);
+  await window.evaluate(() => window.__chessDebug.clickSquare('g1'));
+  await window.evaluate(() => window.__chessDebug.clickSquare('f3'));
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog())).toEqual(['e4', 'e5', 'Nf3', 'Nc6']);
 
   await window.locator('#resetButton').click();
   await window.locator('[data-mode="pvp"]').click();
