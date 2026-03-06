@@ -201,6 +201,14 @@ h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 0.94; }
   box-shadow: 0 14px 28px rgba(79, 163, 208, 0.28);
 }
 
+.controls button:disabled,
+.overlay-card button:disabled,
+.promotion-card button:disabled {
+  cursor: default;
+  opacity: 0.45;
+  box-shadow: none;
+}
+
 .move-panels {
   display: grid;
   grid-template-rows: minmax(180px, 1fr) auto;
@@ -286,6 +294,20 @@ h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 0.94; }
   display: none;
 }
 
+.promotion-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, rgba(4, 8, 14, 0.12), rgba(2, 6, 12, 0.48));
+  backdrop-filter: blur(5px);
+  z-index: 2;
+}
+
+.promotion-overlay[hidden] {
+  display: none;
+}
+
 .overlay-card {
   width: min(92%, 360px);
   padding: 24px;
@@ -313,6 +335,45 @@ h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 0.94; }
   margin: 0 0 18px;
   color: var(--muted);
   line-height: 1.5;
+}
+
+.promotion-card {
+  width: min(92%, 420px);
+  padding: 24px;
+  border-radius: 24px;
+  border: 1px solid rgba(158, 213, 255, 0.22);
+  background: rgba(4, 12, 22, 0.86);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.38);
+}
+
+.promotion-card h2 {
+  margin: 0 0 16px;
+  font-size: 1.4rem;
+}
+
+.promotion-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.promotion-option,
+#promotionCancelButton {
+  appearance: none;
+  border: 1px solid rgba(161, 220, 255, 0.18);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.promotion-option:hover,
+#promotionCancelButton:hover {
+  border-color: rgba(132, 230, 255, 0.45);
+  background: rgba(132, 230, 255, 0.12);
 }
 
 @media (max-width: 1220px) {

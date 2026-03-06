@@ -6,6 +6,7 @@ const PIECE_LABELS = {
   wp: 'White Pawn', wn: 'White Knight', wb: 'White Bishop', wr: 'White Rook', wq: 'White Queen', wk: 'White King',
   bp: 'Black Pawn', bn: 'Black Knight', bb: 'Black Bishop', br: 'Black Rook', bq: 'Black Queen', bk: 'Black King',
 };
+const PROMOTION_LABELS = { q: 'Queen', r: 'Rook', b: 'Bishop', n: 'Knight' };
 
 const PIECE_VALUES = { p: 1, n: 3, b: 3.25, r: 5, q: 9, k: 99 };
 const DIFFICULTY_SETTINGS = {
@@ -13,6 +14,7 @@ const DIFFICULTY_SETTINGS = {
   medium: { depth: 2, thinkMs: 420, randomness: 8 },
   hard: { depth: 3, thinkMs: 560, randomness: 0 },
 };
+const SETTINGS_STORAGE_KEY = 'glass-marble-chess.settings';
 const THEMES = {
   'glass-marble': {
     label: 'Glass Marble',
@@ -175,6 +177,8 @@ app.innerHTML = `
       </section>
 
       <div class="controls">
+        <button id="undoButton">Undo</button>
+        <button id="redoButton">Redo</button>
         <button id="resetButton">Reset Match</button>
         <button id="flipButton">Flip Board</button>
       </div>
@@ -195,6 +199,19 @@ app.innerHTML = `
     <div class="board-wrap">
       <div class="board-stage" id="boardStage">
         <canvas id="scene"></canvas>
+        <div class="promotion-overlay" id="promotionOverlay" hidden>
+          <div class="promotion-card">
+            <p class="overlay-eyebrow">Promotion</p>
+            <h2 id="promotionHeadline">Choose a piece</h2>
+            <div class="promotion-grid">
+              <button class="promotion-option" data-promotion="q">Queen</button>
+              <button class="promotion-option" data-promotion="r">Rook</button>
+              <button class="promotion-option" data-promotion="b">Bishop</button>
+              <button class="promotion-option" data-promotion="n">Knight</button>
+            </div>
+            <button id="promotionCancelButton">Cancel</button>
+          </div>
+        </div>
         <div class="game-overlay" id="gameOverlay" hidden>
           <div class="overlay-card">
             <p class="overlay-eyebrow">Game Over</p>
@@ -232,6 +249,11 @@ const blackTurnPill = document.querySelector('#blackTurnPill');
 const modeControls = document.querySelector('#modeControls');
 const difficultyControls = document.querySelector('#difficultyControls');
 const themeControls = document.querySelector('#themeControls');
+const undoButton = document.querySelector('#undoButton');
+const redoButton = document.querySelector('#redoButton');
+const promotionOverlay = document.querySelector('#promotionOverlay');
+const promotionHeadline = document.querySelector('#promotionHeadline');
+const promotionCancelButton = document.querySelector('#promotionCancelButton');
 const gameOverlay = document.querySelector('#gameOverlay');
 const overlayHeadline = document.querySelector('#overlayHeadline');
 const overlayDetail = document.querySelector('#overlayDetail');
@@ -244,6 +266,8 @@ let selectedSquare = null;
 let lastMoveSquares = [];
 let botThinking = false;
 let botTimer = null;
+let pendingPromotion = null;
+const redoStack = [];
 const captureState = { w: [], b: [] };
 
 const chess = new Chess();
@@ -302,6 +326,7 @@ const half = boardSize / 2;
 const squareMeshes = new Map();
 const pieceMeshes = new Map();
 const legalTargets = new Set();
+const legalMovesByTarget = new Map();
 
 const squareGeometry = new THREE.BoxGeometry(squareSize, 0.22, squareSize);
 const boardBase = new THREE.Mesh(
@@ -829,6 +854,74 @@ function clearBotTimer() {
   }
 }
 
+function loadSettings() {
+  try {
+    const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!raw) return;
+    const settings = JSON.parse(raw);
+    if (settings.playerMode === 'pvp' || settings.playerMode === 'pve') playerMode = settings.playerMode;
+    if (DIFFICULTY_SETTINGS[settings.botDifficulty]) botDifficulty = settings.botDifficulty;
+    if (THEMES[settings.activeThemeKey]) activeThemeKey = settings.activeThemeKey;
+    if (typeof settings.boardFlipped === 'boolean') boardFlipped = settings.boardFlipped;
+  } catch {
+    window.localStorage.removeItem(SETTINGS_STORAGE_KEY);
+  }
+}
+
+function saveSettings() {
+  try {
+    window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+      playerMode,
+      botDifficulty,
+      activeThemeKey,
+      boardFlipped,
+    }));
+  } catch {
+    // Ignore storage failures in restrictive renderer contexts.
+  }
+}
+
+function resetRedoStack() {
+  redoStack.length = 0;
+}
+
+function applyCapturedStateFromHistory(history) {
+  captureState.w = [];
+  captureState.b = [];
+  history.forEach((move) => {
+    if (!move.captured) return;
+    const capturedCode = `${move.color === 'w' ? 'b' : 'w'}${move.captured}`;
+    captureState[move.color].push(capturedCode);
+  });
+}
+
+function hidePromotionOverlay() {
+  pendingPromotion = null;
+  promotionOverlay.hidden = true;
+}
+
+function showPromotionOverlay(from, to, color) {
+  pendingPromotion = { from, to, color };
+  promotionHeadline.textContent = `${color === 'w' ? 'White' : 'Black'} pawn on ${to} promotes to:`;
+  promotionOverlay.hidden = false;
+}
+
+function syncBoardState(immediate = true, extraMessage = '') {
+  const verboseHistory = chess.history({ verbose: true });
+  lastMoveSquares = verboseHistory.length ? [verboseHistory.at(-1).from, verboseHistory.at(-1).to] : [];
+  applyCapturedStateFromHistory(verboseHistory);
+  selectedSquare = null;
+  selectionLabel.textContent = 'None';
+  legalTargets.clear();
+  legalMovesByTarget.clear();
+  hidePromotionOverlay();
+  rebuildPiecesFromBoard(immediate);
+  updateMoveLog();
+  syncCaptured();
+  updateHighlights();
+  updateStatus(extraMessage);
+}
+
 function getModeLabel() {
   return playerMode === 'pve' ? `PvE · ${botDifficulty}` : 'PvP';
 }
@@ -880,6 +973,18 @@ function updateThemeControls() {
   });
 }
 
+function getUndoBatchSize() {
+  const historyLength = chess.history().length;
+  if (!historyLength) return 0;
+  if (playerMode !== 'pve') return 1;
+  return chess.turn() === 'w' ? Math.min(2, historyLength) : 1;
+}
+
+function updateActionButtons() {
+  undoButton.disabled = getUndoBatchSize() === 0 || !promotionOverlay.hidden;
+  redoButton.disabled = redoStack.length === 0 || botThinking || !promotionOverlay.hidden;
+}
+
 function updateTurnVisuals(turn) {
   turnHero.dataset.turn = turn;
   whiteTurnPill.classList.toggle('active', turn === 'w');
@@ -890,7 +995,7 @@ function getMoveText(move) {
   if (move.flags.includes('k')) return `${move.color === 'w' ? 'White' : 'Black'} castled kingside`;
   if (move.flags.includes('q')) return `${move.color === 'w' ? 'White' : 'Black'} castled queenside`;
   if (move.flags.includes('e')) return `${move.color === 'w' ? 'White' : 'Black'} en passant on ${move.to}`;
-  if (move.flags.includes('p')) return `${move.color === 'w' ? 'White' : 'Black'} promoted on ${move.to}`;
+  if (move.flags.includes('p')) return `${move.color === 'w' ? 'White' : 'Black'} promoted to ${PROMOTION_LABELS[move.promotion]} on ${move.to}`;
   return `${move.color === 'w' ? 'White' : 'Black'} played ${move.san}`;
 }
 
@@ -900,6 +1005,7 @@ function updateStatus(extraMessage = '') {
   turnLabel.textContent = turnName;
   updateTurnVisuals(turn);
   updateModeControls();
+  updateActionButtons();
 
   let statusMessage = `${turnName} to move`;
   let promptMessage = `${turnName} controls the next move.`;
@@ -908,6 +1014,9 @@ function updateStatus(extraMessage = '') {
   if (conclusion) {
     statusMessage = conclusion.detail;
     promptMessage = conclusion.headline;
+  } else if (pendingPromotion) {
+    statusMessage = `${turnName} choose a promotion piece`;
+    promptMessage = `${turnName} must finish the pawn promotion.`;
   } else if (botThinking) {
     statusMessage = `${turnName} engine thinking`;
     promptMessage = `${turnName} engine is searching ${botDifficulty} lines.`;
@@ -930,14 +1039,16 @@ function updateStatus(extraMessage = '') {
   turnPrompt.textContent = promptMessage;
   instructionLabel.textContent = botThinking
     ? 'Hold the board. The engine is finishing its move.'
+    : pendingPromotion
+      ? 'Choose the promotion piece to complete the move.'
     : playerMode === 'pve'
       ? 'You control White. Click your piece, then a glowing destination square.'
       : 'Click one of your pieces, then a glowing destination square.';
   hintLabel.textContent = conclusion
     ? conclusion.detail
     : playerMode === 'pve'
-      ? `Mode: ${getModeLabel()} · Special moves: castling, en passant, promotion to queen.`
-      : 'Special moves supported: castling, en passant, promotion to queen.';
+      ? `Mode: ${getModeLabel()} · Special moves: castling, en passant, promotion choice.`
+      : 'Special moves supported: castling, en passant, promotion choice.';
 
   setOverlay(conclusion);
 }
@@ -946,18 +1057,64 @@ function selectSquare(square) {
   const piece = chess.get(square);
   if (!piece || piece.color !== chess.turn()) return;
   if (playerMode === 'pve' && chess.turn() === BOT_COLOR) return;
+  hidePromotionOverlay();
   selectedSquare = square;
   selectionLabel.textContent = `${PIECE_LABELS[`${piece.color}${piece.type}`]} on ${square}`;
   legalTargets.clear();
-  chess.moves({ square, verbose: true }).forEach((move) => legalTargets.add(move.to));
+  legalMovesByTarget.clear();
+  chess.moves({ square, verbose: true }).forEach((move) => {
+    legalTargets.add(move.to);
+    const moves = legalMovesByTarget.get(move.to) ?? [];
+    moves.push(move);
+    legalMovesByTarget.set(move.to, moves);
+  });
   updateHighlights();
+  updateActionButtons();
 }
 
 function clearSelection() {
   selectedSquare = null;
   selectionLabel.textContent = 'None';
   legalTargets.clear();
+  legalMovesByTarget.clear();
+  hidePromotionOverlay();
   updateHighlights();
+  updateActionButtons();
+}
+
+function undoMoveBatch() {
+  const batchSize = getUndoBatchSize();
+  if (!batchSize) return false;
+  clearBotTimer();
+  botThinking = false;
+  hidePromotionOverlay();
+  const batch = [];
+  for (let i = 0; i < batchSize; i += 1) {
+    const move = chess.undo();
+    if (!move) break;
+    batch.unshift(move);
+  }
+  if (!batch.length) {
+    updateStatus();
+    return false;
+  }
+  redoStack.push(batch);
+  syncBoardState(true, 'Move undone');
+  return true;
+}
+
+function redoMoveBatch() {
+  const batch = redoStack.pop();
+  if (!batch?.length) return false;
+  clearBotTimer();
+  botThinking = false;
+  hidePromotionOverlay();
+  batch.forEach((move) => {
+    applyMove(move.from, move.to, move.promotion ?? 'q', { clearRedo: false, scheduleBot: false });
+  });
+  updateStatus('Move restored');
+  scheduleBotTurn();
+  return true;
 }
 
 function scoreMoveHeuristic(move) {
@@ -1046,7 +1203,7 @@ function chooseBotMove() {
 
 function scheduleBotTurn() {
   clearBotTimer();
-  if (playerMode !== 'pve' || chess.isGameOver() || chess.turn() !== BOT_COLOR) return;
+  if (playerMode !== 'pve' || chess.isGameOver() || chess.turn() !== BOT_COLOR || pendingPromotion) return;
   botThinking = true;
   updateStatus();
   botTimer = setTimeout(() => {
@@ -1061,9 +1218,11 @@ function scheduleBotTurn() {
   }, DIFFICULTY_SETTINGS[botDifficulty].thinkMs);
 }
 
-function applyMove(from, to, promotion = 'q') {
+function applyMove(from, to, promotion = 'q', options = {}) {
+  const { clearRedo = true, scheduleBot = true } = options;
   const move = chess.move({ from, to, promotion });
   if (!move) return false;
+  if (clearRedo) resetRedoStack();
 
   const movingPieceCode = `${move.color}${move.piece}`;
   let movingMesh = pieceMeshes.get(from);
@@ -1109,7 +1268,7 @@ function applyMove(from, to, promotion = 'q') {
   updateMoveLog();
   syncCaptured();
   updateStatus(getMoveText(move));
-  scheduleBotTurn();
+  if (scheduleBot) scheduleBotTurn();
   return true;
 }
 
@@ -1118,7 +1277,7 @@ function isHumanTurn() {
 }
 
 function trySquareClick(square) {
-  if (chess.isGameOver() || botThinking || !isHumanTurn()) return;
+  if (chess.isGameOver() || botThinking || !isHumanTurn() || pendingPromotion) return;
   if (!selectedSquare) {
     selectSquare(square);
     return;
@@ -1127,7 +1286,16 @@ function trySquareClick(square) {
     clearSelection();
     return;
   }
-  if (legalTargets.has(square) && applyMove(selectedSquare, square)) return;
+  if (legalTargets.has(square)) {
+    const moves = legalMovesByTarget.get(square) ?? [];
+    if (moves.some((move) => move.promotion)) {
+      showPromotionOverlay(selectedSquare, square, chess.turn());
+      updateStatus();
+      updateHighlights();
+      return;
+    }
+    if (applyMove(selectedSquare, square)) return;
+  }
   selectSquare(square);
 }
 
@@ -1149,17 +1317,40 @@ canvas.addEventListener('pointerdown', onPointer);
 
 document.querySelector('#resetButton').addEventListener('click', () => resetGame());
 document.querySelector('#overlayResetButton').addEventListener('click', () => resetGame());
+undoButton.addEventListener('click', () => {
+  undoMoveBatch();
+});
+redoButton.addEventListener('click', () => {
+  redoMoveBatch();
+});
 document.querySelector('#flipButton').addEventListener('click', () => {
   boardFlipped = !boardFlipped;
+  saveSettings();
   updateBoardOrientation();
   relayoutPieces(true);
   resize();
+});
+promotionOverlay.addEventListener('click', (event) => {
+  const option = event.target.closest('[data-promotion]');
+  if (!option || !pendingPromotion) return;
+  const { from, to } = pendingPromotion;
+  applyMove(from, to, option.dataset.promotion);
+});
+promotionCancelButton.addEventListener('click', () => {
+  if (!pendingPromotion) return;
+  const resumeSquare = pendingPromotion.from;
+  hidePromotionOverlay();
+  if (resumeSquare) {
+    selectSquare(resumeSquare);
+    updateStatus();
+  }
 });
 
 modeControls.addEventListener('click', (event) => {
   const button = event.target.closest('[data-mode]');
   if (!button || button.dataset.mode === playerMode) return;
   playerMode = button.dataset.mode;
+  saveSettings();
   resetGame();
 });
 
@@ -1167,6 +1358,7 @@ difficultyControls.addEventListener('click', (event) => {
   const button = event.target.closest('[data-difficulty]');
   if (!button || button.dataset.difficulty === botDifficulty) return;
   botDifficulty = button.dataset.difficulty;
+  saveSettings();
   if (playerMode === 'pve') {
     resetGame();
   } else {
@@ -1179,6 +1371,7 @@ themeControls.addEventListener('click', (event) => {
   const button = event.target.closest('[data-theme]');
   if (!button || button.dataset.theme === activeThemeKey) return;
   activeThemeKey = button.dataset.theme;
+  saveSettings();
   applyTheme();
 });
 
@@ -1271,17 +1464,8 @@ function resetGame() {
   clearBotTimer();
   botThinking = false;
   chess.reset();
-  selectedSquare = null;
-  lastMoveSquares = [];
-  legalTargets.clear();
-  captureState.w = [];
-  captureState.b = [];
-  rebuildPiecesFromBoard(true);
-  updateMoveLog();
-  syncCaptured();
-  updateHighlights();
-  selectionLabel.textContent = 'None';
-  updateStatus();
+  resetRedoStack();
+  syncBoardState(true);
   scheduleBotTurn();
 }
 
@@ -1289,17 +1473,8 @@ function loadFenForDebug(fen) {
   clearBotTimer();
   botThinking = false;
   chess.load(fen);
-  selectedSquare = null;
-  lastMoveSquares = [];
-  legalTargets.clear();
-  captureState.w = [];
-  captureState.b = [];
-  rebuildPiecesFromBoard(true);
-  updateMoveLog();
-  syncCaptured();
-  updateHighlights();
-  selectionLabel.textContent = 'None';
-  updateStatus();
+  resetRedoStack();
+  syncBoardState(true);
 }
 
 function projectWorldPoint(point3d) {
@@ -1343,11 +1518,22 @@ window.__chessDebug = {
     playerMode,
     botDifficulty,
     activeThemeKey,
+    boardFlipped,
     botThinking,
     overlayVisible: !gameOverlay.hidden,
+    promotionVisible: !promotionOverlay.hidden,
     selection: selectionLabel.textContent,
+    canUndo: !undoButton.disabled,
+    canRedo: !redoButton.disabled,
   }),
   setFen: (fen) => loadFenForDebug(fen),
+  resetSettings: () => {
+    window.localStorage.removeItem(SETTINGS_STORAGE_KEY);
+  },
+  getSavedSettings: () => {
+    const raw = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  },
   boardMetrics: () => ({
     viewport: { width: window.innerWidth, height: window.innerHeight },
     shell: document.querySelector('.shell').getBoundingClientRect(),
@@ -1361,6 +1547,7 @@ window.__chessDebug = {
   }),
 };
 
+loadSettings();
 updateBoardOrientation();
 applyTheme();
 resize();

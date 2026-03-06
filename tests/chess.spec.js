@@ -13,18 +13,23 @@ const QA_INVENTORY = {
     'The board remains fully visible and fit to the window after resizing',
     'Players can click pieces and destination squares to move legally',
     'The active side is visually obvious',
+    'Undo and redo restore the expected board state',
     'Flip board preserves interaction fidelity',
     'PvE mode responds with a bot move at the selected difficulty',
     'Castling works through normal board interaction',
     'En passant works through normal board interaction',
+    'Promotion requires a piece choice and uses the chosen piece',
     'Checkmate and draw both end the game with a visible overlay and blocked further play',
+    'Mode, difficulty, theme, and board orientation persist across reloads',
   ],
   controls: [
     'Board click selection and move target click',
+    'Undo and Redo buttons',
     'Reset Match button',
     'Flip Board button',
     'Mode segmented control',
     'Difficulty segmented control',
+    'Promotion choice overlay',
     'Move log, overlay, and turn spotlight updates',
   ],
   exploratory: [
@@ -55,6 +60,9 @@ test.beforeAll(() => {
 test('glass marble chess supports responsive layout, PvE, special rules, and game termination', async () => {
   const electronApp = await electron.launch({ args: ['.'], cwd: rootDir });
   const window = await electronApp.firstWindow();
+  await window.waitForLoadState('domcontentloaded');
+  await window.evaluate(() => window.__chessDebug.resetSettings());
+  await window.reload();
   await window.waitForLoadState('domcontentloaded');
 
   expect(QA_INVENTORY.claims.length).toBeGreaterThan(0);
@@ -104,6 +112,17 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await window.evaluate(() => window.__chessDebug.clickSquare('b1'));
   await expect(window.locator('#selectionLabel')).toHaveText('None');
 
+  await window.evaluate(() => window.__chessDebug.clickSquare('b1'));
+  await window.evaluate(() => window.__chessDebug.clickSquare('c3'));
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('c3'))).toBe('wn');
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().canUndo)).toBeTruthy();
+  await window.locator('#undoButton').click();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('b1'))).toBe('wn');
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().canRedo)).toBeTruthy();
+  await window.locator('#redoButton').click();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('c3'))).toBe('wn');
+  await window.locator('#resetButton').click();
+
   await window.locator('[data-mode="pve"]').click();
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().playerMode)).toBe('pve');
   await expect(window.locator('[data-mode="pve"]')).toHaveClass(/active/);
@@ -114,6 +133,11 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog().length)).toBe(2);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getTurn())).toBe('w');
   await expect(window.locator('#blackTurnPill')).not.toHaveClass(/active/);
+  await window.locator('#undoButton').click();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog().length)).toBe(0);
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getTurn())).toBe('w');
+  await window.locator('#redoButton').click();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog().length)).toBe(2);
 
   await window.locator('#resetButton').click();
   await window.locator('[data-mode="pvp"]').click();
@@ -161,6 +185,18 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('d6'))).toBe('wp');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('d5'))).toBeNull();
 
+  await window.evaluate(() => window.__chessDebug.setFen('7k/P7/8/8/8/8/8/K7 w - - 0 1'));
+  await window.evaluate(() => window.__chessDebug.clickSquare('a7'));
+  await window.evaluate(() => window.__chessDebug.clickSquare('a8'));
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().promotionVisible)).toBeTruthy();
+  await window.locator('[data-promotion="n"]').click();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().promotionVisible)).toBeFalsy();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('a8'))).toBe('wn');
+  await window.locator('#undoButton').click();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('a7'))).toBe('wp');
+  await window.locator('#redoButton').click();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('a8'))).toBe('wn');
+
   await window.locator('#resetButton').click();
   await playMoves(window, [
     ['e2', 'e4'],
@@ -202,6 +238,28 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   const drawFen = await window.evaluate(() => window.__chessDebug.getFen());
   await clickSquare(window, 'h8', 'square');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getFen())).toBe(drawFen);
+
+  await window.locator('[data-mode="pve"]').click();
+  await window.locator('[data-difficulty="hard"]').click();
+  await window.locator('[data-theme="rosewood-ivory"]').click();
+  await window.locator('#flipButton').click();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getSavedSettings())).toMatchObject({
+    playerMode: 'pve',
+    botDifficulty: 'hard',
+    activeThemeKey: 'rosewood-ivory',
+    boardFlipped: true,
+  });
+  await window.reload();
+  await window.waitForLoadState('domcontentloaded');
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState())).toMatchObject({
+    playerMode: 'pve',
+    botDifficulty: 'hard',
+    activeThemeKey: 'rosewood-ivory',
+    boardFlipped: true,
+  });
+  await expect(window.locator('[data-mode="pve"]')).toHaveClass(/active/);
+  await expect(window.locator('[data-difficulty="hard"]')).toHaveClass(/active/);
+  await expect(window.locator('button[data-theme="rosewood-ivory"]')).toHaveClass(/active/);
 
   await electronApp.close();
 });
