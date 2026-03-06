@@ -248,6 +248,10 @@ h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 0.94; }
   box-shadow: 0 14px 28px rgba(79, 163, 208, 0.28);
 }
 
+#soundToggleButton.active-sound {
+  outline: 1px solid rgba(255, 255, 255, 0.18);
+}
+
 .controls button:disabled,
 .overlay-card button:disabled,
 .promotion-card button:disabled {
@@ -387,6 +391,23 @@ h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 0.94; }
   margin: 0 0 18px;
   color: var(--muted);
   line-height: 1.5;
+}
+
+.overlay-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 18px;
+}
+
+.overlay-meta span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(132, 230, 255, 0.08);
+  border: 1px solid rgba(132, 230, 255, 0.15);
+  color: var(--text);
+  font-size: 0.8rem;
 }
 
 .promotion-card {

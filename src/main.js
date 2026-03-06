@@ -310,6 +310,7 @@ app.innerHTML = `
       <div class="controls">
         <button id="undoButton">Undo</button>
         <button id="redoButton">Redo</button>
+        <button id="soundToggleButton">Sound On</button>
         <button id="resetButton">Reset Match</button>
         <button id="flipButton">Flip Board</button>
       </div>
@@ -348,6 +349,7 @@ app.innerHTML = `
             <p class="overlay-eyebrow">Game Over</p>
             <h2 id="overlayHeadline">White wins</h2>
             <p id="overlayDetail">Checkmate ends the game.</p>
+            <div class="overlay-meta" id="overlayMeta"></div>
             <button id="overlayReviewButton">Review Game</button>
             <button id="overlayResetButton">Play Again</button>
           </div>
@@ -395,18 +397,21 @@ const reviewNextButton = document.querySelector('#reviewNextButton');
 const reviewEndButton = document.querySelector('#reviewEndButton');
 const undoButton = document.querySelector('#undoButton');
 const redoButton = document.querySelector('#redoButton');
+const soundToggleButton = document.querySelector('#soundToggleButton');
 const promotionOverlay = document.querySelector('#promotionOverlay');
 const promotionHeadline = document.querySelector('#promotionHeadline');
 const promotionCancelButton = document.querySelector('#promotionCancelButton');
 const gameOverlay = document.querySelector('#gameOverlay');
 const overlayHeadline = document.querySelector('#overlayHeadline');
 const overlayDetail = document.querySelector('#overlayDetail');
+const overlayMeta = document.querySelector('#overlayMeta');
 const overlayReviewButton = document.querySelector('#overlayReviewButton');
 
 let playerMode = 'pvp';
 let botDifficulty = 'easy';
 let activeThemeKey = 'glass-marble';
 let timeControlKey = 'rapid5';
+let soundEnabled = true;
 let boardFlipped = false;
 let selectedSquare = null;
 let lastMoveSquares = [];
@@ -421,6 +426,8 @@ let reviewIndex = 0;
 let gameStartFen = 'start';
 let recordedHistorySan = [];
 let recordedHistoryVerbose = [];
+let audioContext = null;
+let lastSoundCue = null;
 const redoStack = [];
 const captureState = { w: [], b: [] };
 const clockState = {
@@ -1111,6 +1118,7 @@ function loadSettings() {
     if (DIFFICULTY_SETTINGS[settings.botDifficulty]) botDifficulty = settings.botDifficulty;
     if (THEMES[settings.activeThemeKey]) activeThemeKey = settings.activeThemeKey;
     if (TIME_CONTROLS[settings.timeControlKey]) timeControlKey = settings.timeControlKey;
+    if (typeof settings.soundEnabled === 'boolean') soundEnabled = settings.soundEnabled;
   } catch {
     window.localStorage.removeItem(SETTINGS_STORAGE_KEY);
   }
@@ -1123,6 +1131,7 @@ function saveSettings() {
       botDifficulty,
       activeThemeKey,
       timeControlKey,
+      soundEnabled,
     }));
   } catch {
     // Ignore storage failures in restrictive renderer contexts.
@@ -1177,6 +1186,67 @@ function updateAnalysisPanel() {
   } else {
     analysisLabel.textContent = `${materialText} · ${recordedHistoryVerbose.length} plies${reviewSuffix}`;
   }
+}
+
+function updateSoundToggle() {
+  soundToggleButton.textContent = soundEnabled ? 'Sound On' : 'Sound Off';
+  soundToggleButton.classList.toggle('active-sound', soundEnabled);
+}
+
+function ensureAudioContext() {
+  if (!soundEnabled) return null;
+  if (!audioContext) {
+    const AudioCtor = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtor) return null;
+    audioContext = new AudioCtor();
+  }
+  if (audioContext.state === 'suspended') {
+    audioContext.resume().catch(() => {});
+  }
+  return audioContext;
+}
+
+function playSoundCue(type) {
+  lastSoundCue = type;
+  if (!soundEnabled) return;
+  const ctx = ensureAudioContext();
+  if (!ctx) return;
+  const patterns = {
+    move: [{ freq: 440, dur: 0.05, gain: 0.028 }, { freq: 554, dur: 0.04, gain: 0.018, offset: 0.05 }],
+    capture: [{ freq: 320, dur: 0.05, gain: 0.035 }, { freq: 220, dur: 0.08, gain: 0.024, offset: 0.05 }],
+    castle: [{ freq: 392, dur: 0.05, gain: 0.024 }, { freq: 523, dur: 0.06, gain: 0.024, offset: 0.06 }],
+    check: [{ freq: 660, dur: 0.06, gain: 0.03 }, { freq: 740, dur: 0.05, gain: 0.022, offset: 0.06 }],
+    gameover: [{ freq: 392, dur: 0.08, gain: 0.032 }, { freq: 330, dur: 0.1, gain: 0.03, offset: 0.09 }, { freq: 262, dur: 0.16, gain: 0.034, offset: 0.2 }],
+    timeout: [{ freq: 220, dur: 0.1, gain: 0.03 }, { freq: 196, dur: 0.14, gain: 0.03, offset: 0.12 }],
+  };
+  const notes = patterns[type] ?? patterns.move;
+  const now = ctx.currentTime;
+  notes.forEach(({ freq, dur, gain, offset = 0 }) => {
+    const osc = ctx.createOscillator();
+    const amp = ctx.createGain();
+    osc.type = type === 'capture' ? 'triangle' : 'sine';
+    osc.frequency.setValueAtTime(freq, now + offset);
+    amp.gain.setValueAtTime(0.0001, now + offset);
+    amp.gain.exponentialRampToValueAtTime(gain, now + offset + 0.01);
+    amp.gain.exponentialRampToValueAtTime(0.0001, now + offset + dur);
+    osc.connect(amp);
+    amp.connect(ctx.destination);
+    osc.start(now + offset);
+    osc.stop(now + offset + dur + 0.02);
+  });
+}
+
+function updateOverlayMeta(conclusion) {
+  if (!conclusion || reviewMode) {
+    overlayMeta.innerHTML = '';
+    return;
+  }
+  overlayMeta.innerHTML = [
+    `<span>${getModeLabel()}</span>`,
+    `<span>${getTimeControl().label}</span>`,
+    `<span>${getOpeningName()}</span>`,
+    `<span>${recordedHistoryVerbose.length} plies</span>`,
+  ].join('');
 }
 
 function applyCapturedStateFromHistory(history) {
@@ -1314,6 +1384,7 @@ function expireOnTime(color) {
     expiredColor: color,
   };
   clearSelection();
+  playSoundCue('timeout');
   updateClockLabels();
   updateStatus();
 }
@@ -1370,10 +1441,12 @@ function getGameConclusion() {
 function setOverlay(conclusion) {
   if (!conclusion || reviewMode) {
     gameOverlay.hidden = true;
+    updateOverlayMeta(null);
     return;
   }
   overlayHeadline.textContent = conclusion.headline;
   overlayDetail.textContent = conclusion.detail;
+  updateOverlayMeta(conclusion);
   gameOverlay.hidden = false;
 }
 
@@ -1407,6 +1480,26 @@ function updateReviewControls() {
   reviewNextButton.disabled = !hasMoves || !reviewMode || reviewIndex >= recordedHistoryVerbose.length;
   reviewEndButton.disabled = !hasMoves || !reviewMode || reviewIndex >= recordedHistoryVerbose.length;
   reviewExitButton.disabled = !reviewMode;
+}
+
+function emitMoveSound(move) {
+  if (move.san.includes('#')) {
+    playSoundCue('gameover');
+    return;
+  }
+  if (move.san.includes('+')) {
+    playSoundCue('check');
+    return;
+  }
+  if (move.flags.includes('k') || move.flags.includes('q')) {
+    playSoundCue('castle');
+    return;
+  }
+  if (move.captured || move.flags.includes('e')) {
+    playSoundCue('capture');
+    return;
+  }
+  playSoundCue('move');
 }
 
 function getUndoBatchSize() {
@@ -1784,6 +1877,7 @@ function applyMove(from, to, promotion = 'q', options = {}) {
   updateMoveLog();
   syncCaptured();
   updateAnalysisPanel();
+  emitMoveSound(move);
   updateStatus(getMoveText(move));
   if (scheduleBot) scheduleBotTurn();
   return true;
@@ -1818,6 +1912,7 @@ function trySquareClick(square) {
 
 function onPointerDown(event) {
   if (isMatchOver() || reviewMode || botThinking || !isHumanTurn() || pendingPromotion) return;
+  ensureAudioContext();
   updatePointerFromEvent(event);
   const square = getHitSquare();
   if (!square) return;
@@ -1920,12 +2015,21 @@ reviewNextButton.addEventListener('click', () => enterReviewMode(Math.min(record
 reviewEndButton.addEventListener('click', () => enterReviewMode(recordedHistoryVerbose.length));
 reviewExitButton.addEventListener('click', () => exitReviewMode());
 undoButton.addEventListener('click', () => {
+  ensureAudioContext();
   undoMoveBatch();
 });
 redoButton.addEventListener('click', () => {
+  ensureAudioContext();
   redoMoveBatch();
 });
+soundToggleButton.addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  saveSettings();
+  updateSoundToggle();
+  if (soundEnabled) ensureAudioContext();
+});
 document.querySelector('#flipButton').addEventListener('click', () => {
+  ensureAudioContext();
   boardFlipped = !boardFlipped;
   saveSettings();
   updateBoardOrientation();
@@ -1935,6 +2039,7 @@ document.querySelector('#flipButton').addEventListener('click', () => {
 promotionOverlay.addEventListener('click', (event) => {
   const option = event.target.closest('[data-promotion]');
   if (!option || !pendingPromotion) return;
+  ensureAudioContext();
   const { from, to } = pendingPromotion;
   applyMove(from, to, option.dataset.promotion);
 });
@@ -1951,6 +2056,7 @@ promotionCancelButton.addEventListener('click', () => {
 modeControls.addEventListener('click', (event) => {
   const button = event.target.closest('[data-mode]');
   if (!button || button.dataset.mode === playerMode) return;
+  ensureAudioContext();
   playerMode = button.dataset.mode;
   saveSettings();
   resetGame();
@@ -1959,6 +2065,7 @@ modeControls.addEventListener('click', (event) => {
 difficultyControls.addEventListener('click', (event) => {
   const button = event.target.closest('[data-difficulty]');
   if (!button || button.dataset.difficulty === botDifficulty) return;
+  ensureAudioContext();
   botDifficulty = button.dataset.difficulty;
   saveSettings();
   if (playerMode === 'pve') {
@@ -1972,6 +2079,7 @@ difficultyControls.addEventListener('click', (event) => {
 timeControls.addEventListener('click', (event) => {
   const button = event.target.closest('[data-time]');
   if (!button || button.dataset.time === timeControlKey) return;
+  ensureAudioContext();
   timeControlKey = button.dataset.time;
   saveSettings();
   resetGame();
@@ -1980,6 +2088,7 @@ timeControls.addEventListener('click', (event) => {
 themeControls.addEventListener('click', (event) => {
   const button = event.target.closest('[data-theme]');
   if (!button || button.dataset.theme === activeThemeKey) return;
+  ensureAudioContext();
   activeThemeKey = button.dataset.theme;
   saveSettings();
   applyTheme();
@@ -2151,12 +2260,14 @@ window.__chessDebug = {
     botDifficulty,
     activeThemeKey,
     timeControlKey,
+    soundEnabled,
     boardFlipped,
     hoverSquare,
     clockStarted: clockState.started,
     openingName: getOpeningName(),
     reviewMode,
     reviewIndex,
+    lastSoundCue,
     botThinking,
     overlayVisible: !gameOverlay.hidden,
     promotionVisible: !promotionOverlay.hidden,
@@ -2197,6 +2308,7 @@ window.__chessDebug = {
 loadSettings();
 updateBoardOrientation();
 applyTheme();
+updateSoundToggle();
 resize();
 resetGame();
 animate();

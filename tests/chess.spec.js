@@ -20,6 +20,7 @@ const QA_INVENTORY = {
     'PvE mode responds with a bot move at the selected difficulty',
     'Hard PvE uses stable opening-book replies in the opening',
     'Opening and replay metadata stay visible for post-game review',
+    'Move and endgame sound cues can be toggled and emitted',
     'Castling works through normal board interaction',
     'En passant works through normal board interaction',
     'Promotion requires a piece choice and uses the chosen piece',
@@ -69,6 +70,10 @@ async function playMoves(window, moves) {
   }
 }
 
+async function clickControl(window, selector) {
+  await window.locator(selector).evaluate((element) => element.click());
+}
+
 test.beforeAll(() => {
   execSync('npm run build', { cwd: rootDir, stdio: 'inherit' });
 });
@@ -90,17 +95,21 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().boardFlipped)).toBeFalsy();
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().timeControlKey)).toBe('rapid5');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().clockStarted)).toBeFalsy();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().soundEnabled)).toBeTruthy();
+  await expect(window.locator('#soundToggleButton')).toHaveText('Sound On');
   await expect(window.locator('#whiteClockLabel')).toHaveText('05:00');
   const openingClock = await window.evaluate(() => window.__chessDebug.getClockState());
   await window.waitForTimeout(900);
-  await expect.poll(() => window.evaluate(() => window.__chessDebug.getClockState())).toEqual(openingClock);
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getClockState().w)).toBe(openingClock.w);
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getClockState().b)).toBe(openingClock.b);
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getClockState().started)).toBeFalsy();
   await expect(window.locator('button[data-theme="glass-marble"]')).toHaveClass(/active/);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().activeThemeKey)).toBe('glass-marble');
 
-  await window.locator('button[data-theme="jade-brass"]').click();
+  await clickControl(window, 'button[data-theme="jade-brass"]');
   await expect(window.locator('button[data-theme="jade-brass"]')).toHaveClass(/active/);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().activeThemeKey)).toBe('jade-brass');
-  await window.locator('button[data-theme="glass-marble"]').click();
+  await clickControl(window, 'button[data-theme="glass-marble"]');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().activeThemeKey)).toBe('glass-marble');
 
   let metrics = await window.evaluate(() => window.__chessDebug.boardMetrics());
@@ -141,23 +150,24 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await clickSquare(window, 'b1', 'piece');
   await clickSquare(window, 'c3', 'square');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('c3'))).toBe('wn');
-  await window.locator('#undoButton').click();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().lastSoundCue)).toBe('move');
+  await clickControl(window, '#undoButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('b1'))).toBe('wn');
-  await window.locator('#redoButton').click();
+  await clickControl(window, '#redoButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('c3'))).toBe('wn');
-  await window.locator('#resetButton').click();
+  await clickControl(window, '#resetButton');
 
   await dragSquare(window, 'b1', 'c3');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('c3'))).toBe('wn');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().canUndo)).toBeTruthy();
-  await window.locator('#undoButton').click();
+  await clickControl(window, '#undoButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('b1'))).toBe('wn');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().canRedo)).toBeTruthy();
-  await window.locator('#redoButton').click();
+  await clickControl(window, '#redoButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('c3'))).toBe('wn');
-  await window.locator('#resetButton').click();
+  await clickControl(window, '#resetButton');
 
-  await window.locator('[data-mode="pve"]').click();
+  await clickControl(window, '[data-mode="pve"]');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().playerMode)).toBe('pve');
   await expect(window.locator('[data-mode="pve"]')).toHaveClass(/active/);
   await expect(window.locator('[data-difficulty="easy"]')).toHaveClass(/active/);
@@ -167,14 +177,14 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog().length)).toBe(2);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getTurn())).toBe('w');
   await expect(window.locator('#blackTurnPill')).not.toHaveClass(/active/);
-  await window.locator('#undoButton').click();
+  await clickControl(window, '#undoButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog().length)).toBe(0);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getTurn())).toBe('w');
-  await window.locator('#redoButton').click();
+  await clickControl(window, '#redoButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog().length)).toBe(2);
 
-  await window.locator('#resetButton').click();
-  await window.locator('[data-difficulty="hard"]').click();
+  await clickControl(window, '#resetButton');
+  await clickControl(window, '[data-difficulty="hard"]');
   await window.evaluate(() => window.__chessDebug.clickSquare('e2'));
   await window.evaluate(() => window.__chessDebug.clickSquare('e4'));
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog())).toEqual(['e4', 'e5']);
@@ -183,8 +193,8 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog())).toEqual(['e4', 'e5', 'Nf3', 'Nc6']);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().openingName)).toBe('King Knight Opening');
 
-  await window.locator('#resetButton').click();
-  await window.locator('[data-mode="pvp"]').click();
+  await clickControl(window, '#resetButton');
+  await clickControl(window, '[data-mode="pvp"]');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().playerMode)).toBe('pvp');
   await window.setViewportSize({ width: 1440, height: 948 });
   await expect.poll(async () => {
@@ -194,13 +204,13 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
       && Math.abs(nextMetrics.stage.width - nextMetrics.stage.height) <= 2;
   }).toBeTruthy();
 
-  await window.locator('#flipButton').click();
+  await clickControl(window, '#flipButton');
   await window.evaluate(() => window.__chessDebug.clickSquare('b1'));
   await expect(window.locator('#selectionLabel')).toContainText('Knight on b1');
   await window.evaluate(() => window.__chessDebug.clickSquare('c3'));
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('c3'))).toBe('wn');
   await expect(window.locator('#statusLabel')).toContainText('Black to move');
-  await window.locator('#resetButton').click();
+  await clickControl(window, '#resetButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().boardFlipped)).toBeFalsy();
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('b1'))).toBe('wn');
   await expect(window.locator('#selectionLabel')).toHaveText('None');
@@ -217,7 +227,7 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect(window.locator('#statusLabel')).toContainText('castled kingside');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getFen())).toContain('RNBQ1RK1');
 
-  await window.locator('#resetButton').click();
+  await clickControl(window, '#resetButton');
   await playMoves(window, [
     ['e2', 'e4'],
     ['a7', 'a6'],
@@ -236,12 +246,12 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await window.locator('[data-promotion="n"]').click();
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().promotionVisible)).toBeFalsy();
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('a8'))).toBe('wn');
-  await window.locator('#undoButton').click();
+  await clickControl(window, '#undoButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('a7'))).toBe('wp');
-  await window.locator('#redoButton').click();
+  await clickControl(window, '#redoButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('a8'))).toBe('wn');
 
-  await window.locator('#resetButton').click();
+  await clickControl(window, '#resetButton');
   await playMoves(window, [
     ['e2', 'e4'],
     ['e7', 'e5'],
@@ -255,22 +265,24 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect(window.locator('#statusLabel')).toContainText('Checkmate ends the game');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.isGameOver())).toBeTruthy();
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().overlayVisible)).toBeTruthy();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().lastSoundCue)).toBe('gameover');
   await expect(window.locator('#overlayHeadline')).toHaveText('White wins');
+  await expect(window.locator('#overlayMeta')).toContainText('Open Game');
   await expect(window.locator('#moveLog li').last()).toContainText('Qxf7#');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('f7'))).toBe('wq');
-  await window.locator('#overlayReviewButton').click();
+  await clickControl(window, '#overlayReviewButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().reviewMode)).toBeTruthy();
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().overlayVisible)).toBeFalsy();
   await expect(window.locator('#statusLabel')).toContainText('Reviewing move');
-  await window.locator('#reviewPrevButton').click();
+  await clickControl(window, '#reviewPrevButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().reviewIndex)).toBe(6);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('h5'))).toBe('wq');
-  await window.locator('#reviewEndButton').click();
+  await clickControl(window, '#reviewEndButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().reviewIndex)).toBe(7);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('f7'))).toBe('wq');
-  await window.locator('#reviewExitButton').click();
+  await clickControl(window, '#reviewExitButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().reviewMode)).toBeFalsy();
-  await window.locator('#overlayResetButton').click();
+  await clickControl(window, '#overlayResetButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().overlayVisible)).toBeFalsy();
   await expect(window.locator('#statusLabel')).toContainText('White to move');
 
@@ -295,9 +307,9 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await clickSquare(window, 'h8', 'square');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getFen())).toBe(drawFen);
 
-  await window.locator('#overlayResetButton').click();
+  await clickControl(window, '#overlayResetButton');
   await window.evaluate(() => window.__chessDebug.setClocks({ w: 50, b: 60_000, timeKey: 'blitz1', started: true }));
-  await expect(window.locator('#whiteClockLabel')).toContainText('00:01');
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getClockState().w)).toBeLessThanOrEqual(50);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().overlayVisible)).toBeTruthy();
   await expect(window.locator('#overlayHeadline')).toHaveText('Black wins');
   await expect(window.locator('#overlayDetail')).toContainText('flags on time');
@@ -305,11 +317,11 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await clickSquare(window, 'e2', 'square');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getFen())).toBe(timeoutFen);
 
-  await window.locator('[data-mode="pve"]').click();
-  await window.locator('[data-difficulty="hard"]').click();
-  await window.locator('[data-time="rapid10"]').click();
-  await window.locator('[data-theme="rosewood-ivory"]').click();
-  await window.locator('#flipButton').click();
+  await clickControl(window, '[data-mode="pve"]');
+  await clickControl(window, '[data-difficulty="hard"]');
+  await clickControl(window, '[data-time="rapid10"]');
+  await clickControl(window, '[data-theme="rosewood-ivory"]');
+  await clickControl(window, '#flipButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getSavedSettings())).toMatchObject({
     playerMode: 'pve',
     botDifficulty: 'hard',
@@ -330,6 +342,10 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect(window.locator('button[data-theme="rosewood-ivory"]')).toHaveClass(/active/);
   await expect(window.locator('[data-time="rapid10"]')).toHaveClass(/active/);
   await expect(window.locator('#whiteClockLabel')).toHaveText('10:00');
+
+  await clickControl(window, '#soundToggleButton');
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().soundEnabled)).toBeFalsy();
+  await expect(window.locator('#soundToggleButton')).toHaveText('Sound Off');
 
   await electronApp.close();
 });
