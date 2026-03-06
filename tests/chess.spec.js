@@ -19,6 +19,7 @@ const QA_INVENTORY = {
     'Flip board preserves interaction fidelity',
     'PvE mode responds with a bot move at the selected difficulty',
     'Hard PvE uses stable opening-book replies in the opening',
+    'Opening and replay metadata stay visible for post-game review',
     'Castling works through normal board interaction',
     'En passant works through normal board interaction',
     'Promotion requires a piece choice and uses the chosen piece',
@@ -180,6 +181,7 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await window.evaluate(() => window.__chessDebug.clickSquare('g1'));
   await window.evaluate(() => window.__chessDebug.clickSquare('f3'));
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog())).toEqual(['e4', 'e5', 'Nf3', 'Nc6']);
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().openingName)).toBe('King Knight Opening');
 
   await window.locator('#resetButton').click();
   await window.locator('[data-mode="pvp"]').click();
@@ -256,6 +258,18 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect(window.locator('#overlayHeadline')).toHaveText('White wins');
   await expect(window.locator('#moveLog li').last()).toContainText('Qxf7#');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('f7'))).toBe('wq');
+  await window.locator('#overlayReviewButton').click();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().reviewMode)).toBeTruthy();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().overlayVisible)).toBeFalsy();
+  await expect(window.locator('#statusLabel')).toContainText('Reviewing move');
+  await window.locator('#reviewPrevButton').click();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().reviewIndex)).toBe(6);
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('h5'))).toBe('wq');
+  await window.locator('#reviewEndButton').click();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().reviewIndex)).toBe(7);
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('f7'))).toBe('wq');
+  await window.locator('#reviewExitButton').click();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().reviewMode)).toBeFalsy();
   await window.locator('#overlayResetButton').click();
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().overlayVisible)).toBeFalsy();
   await expect(window.locator('#statusLabel')).toContainText('White to move');

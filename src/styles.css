@@ -82,7 +82,8 @@ h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 0.94; }
 .turn-hero,
 .status-panel,
 .move-panels section,
-.play-config {
+.play-config,
+.analysis-panel {
   border: 1px solid rgba(148, 209, 255, 0.14);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.03);
@@ -168,6 +169,39 @@ h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 0.94; }
   gap: 14px;
 }
 
+.analysis-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.analysis-panel p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.review-controls {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.review-controls button {
+  appearance: none;
+  border: 1px solid rgba(161, 220, 255, 0.18);
+  border-radius: 14px;
+  padding: 10px 0;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.review-controls button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .segmented {
   display: flex;
   flex-wrap: wrap;
@@ -237,6 +271,10 @@ h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 0.94; }
   overflow: auto;
   color: var(--muted);
   line-height: 1.5;
+}
+
+#moveLog li.active-row {
+  color: var(--text);
 }
 
 .captured-row {

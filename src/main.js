@@ -28,6 +28,23 @@ const OPENING_BOOK = {
   'd4 d5 c4': ['e6'],
   'd4 Nf6 Nf3': ['d5'],
 };
+const OPENING_NAMES = {
+  'e4': 'King Pawn Game',
+  'd4': 'Queen Pawn Game',
+  'c4': 'English Opening',
+  'Nf3': 'Réti Opening',
+  'e4 e5': 'Open Game',
+  'e4 c5': 'Sicilian Defense',
+  'e4 e6': 'French Defense',
+  'd4 Nf6': 'Indian Defense',
+  'd4 d5': 'Closed Game',
+  'e4 e5 Nf3 Nc6': 'King Knight Opening',
+  'e4 e5 Nf3 Nc6 Bc4 Bc5': 'Italian Game',
+  'e4 e5 Nf3 Nc6 Bb5 a6': 'Ruy Lopez',
+  'e4 c5 Nf3 d6': 'Sicilian Defense: Najdorf Structure',
+  'd4 Nf6 c4 e6': 'Queen\'s Indian Setup',
+  'd4 d5 c4 e6': 'Queen\'s Gambit Declined',
+};
 const PIECE_SQUARE_TABLES = {
   p: [
     [0, 0, 0, 0, 0, 0, 0, 0],
@@ -275,6 +292,21 @@ app.innerHTML = `
         </div>
       </section>
 
+      <section class="analysis-panel">
+        <div>
+          <span class="label">Opening</span>
+          <strong id="openingLabel">Unclassified</strong>
+          <p id="analysisLabel">Review tools unlock once the game has moves.</p>
+        </div>
+        <div class="review-controls">
+          <button type="button" id="reviewStartButton">|&lt;</button>
+          <button type="button" id="reviewPrevButton">&lt;</button>
+          <button type="button" id="reviewExitButton">Live</button>
+          <button type="button" id="reviewNextButton">&gt;</button>
+          <button type="button" id="reviewEndButton">&gt;|</button>
+        </div>
+      </section>
+
       <div class="controls">
         <button id="undoButton">Undo</button>
         <button id="redoButton">Redo</button>
@@ -316,6 +348,7 @@ app.innerHTML = `
             <p class="overlay-eyebrow">Game Over</p>
             <h2 id="overlayHeadline">White wins</h2>
             <p id="overlayDetail">Checkmate ends the game.</p>
+            <button id="overlayReviewButton">Review Game</button>
             <button id="overlayResetButton">Play Again</button>
           </div>
         </div>
@@ -339,6 +372,8 @@ const statusLabel = document.querySelector('#statusLabel');
 const selectionLabel = document.querySelector('#selectionLabel');
 const whiteClockLabel = document.querySelector('#whiteClockLabel');
 const blackClockLabel = document.querySelector('#blackClockLabel');
+const openingLabel = document.querySelector('#openingLabel');
+const analysisLabel = document.querySelector('#analysisLabel');
 const moveLog = document.querySelector('#moveLog');
 const capturedWhite = document.querySelector('#capturedWhite');
 const capturedBlack = document.querySelector('#capturedBlack');
@@ -353,6 +388,11 @@ const modeControls = document.querySelector('#modeControls');
 const difficultyControls = document.querySelector('#difficultyControls');
 const themeControls = document.querySelector('#themeControls');
 const timeControls = document.querySelector('#timeControls');
+const reviewStartButton = document.querySelector('#reviewStartButton');
+const reviewPrevButton = document.querySelector('#reviewPrevButton');
+const reviewExitButton = document.querySelector('#reviewExitButton');
+const reviewNextButton = document.querySelector('#reviewNextButton');
+const reviewEndButton = document.querySelector('#reviewEndButton');
 const undoButton = document.querySelector('#undoButton');
 const redoButton = document.querySelector('#redoButton');
 const promotionOverlay = document.querySelector('#promotionOverlay');
@@ -361,6 +401,7 @@ const promotionCancelButton = document.querySelector('#promotionCancelButton');
 const gameOverlay = document.querySelector('#gameOverlay');
 const overlayHeadline = document.querySelector('#overlayHeadline');
 const overlayDetail = document.querySelector('#overlayDetail');
+const overlayReviewButton = document.querySelector('#overlayReviewButton');
 
 let playerMode = 'pvp';
 let botDifficulty = 'easy';
@@ -375,6 +416,11 @@ let botTimer = null;
 let forcedConclusion = null;
 let pendingPromotion = null;
 let dragState = null;
+let reviewMode = false;
+let reviewIndex = 0;
+let gameStartFen = 'start';
+let recordedHistorySan = [];
+let recordedHistoryVerbose = [];
 const redoStack = [];
 const captureState = { w: [], b: [] };
 const clockState = {
@@ -1037,10 +1083,14 @@ function rebuildPiecesFromBoard(immediate = true) {
 
 function updateMoveLog() {
   moveLog.innerHTML = '';
-  const history = chess.history();
+  const history = recordedHistorySan;
   for (let i = 0; i < history.length; i += 2) {
     const item = document.createElement('li');
     item.textContent = `${history[i] ?? ''} ${history[i + 1] ?? ''}`.trim();
+    const rowPly = i + (history[i + 1] ? 2 : 1);
+    if (reviewMode && rowPly >= reviewIndex && reviewIndex > i) {
+      item.classList.add('active-row');
+    }
     moveLog.appendChild(item);
   }
 }
@@ -1083,6 +1133,52 @@ function resetRedoStack() {
   redoStack.length = 0;
 }
 
+function syncRecordedHistoryFromGame() {
+  recordedHistoryVerbose = chess.history({ verbose: true });
+  recordedHistorySan = chess.history();
+}
+
+function getOpeningName(history = recordedHistorySan) {
+  let best = 'Unclassified';
+  Object.entries(OPENING_NAMES).forEach(([sequence, label]) => {
+    const openingMoves = sequence.split(' ');
+    if (openingMoves.length > history.length) return;
+    const matches = openingMoves.every((move, index) => history[index] === move);
+    if (matches) best = label;
+  });
+  return best;
+}
+
+function getMaterialDeltaFromBoard(board) {
+  let white = 0;
+  let black = 0;
+  board.forEach((rank) => {
+    rank.forEach((piece) => {
+      if (!piece || piece.type === 'k') return;
+      if (piece.color === 'w') white += PIECE_VALUES[piece.type];
+      else black += PIECE_VALUES[piece.type];
+    });
+  });
+  return white - black;
+}
+
+function updateAnalysisPanel() {
+  const opening = getOpeningName();
+  const reviewSuffix = reviewMode ? ` · Reviewing ${reviewIndex}/${recordedHistoryVerbose.length}` : '';
+  const materialDelta = getMaterialDeltaFromBoard(chess.board());
+  const materialText = materialDelta === 0
+    ? 'Material even'
+    : materialDelta > 0
+      ? `White +${materialDelta.toFixed(2).replace(/\.00$/, '')}`
+      : `Black +${Math.abs(materialDelta).toFixed(2).replace(/\.00$/, '')}`;
+  openingLabel.textContent = opening;
+  if (!recordedHistoryVerbose.length) {
+    analysisLabel.textContent = 'Review tools unlock once the game has moves.';
+  } else {
+    analysisLabel.textContent = `${materialText} · ${recordedHistoryVerbose.length} plies${reviewSuffix}`;
+  }
+}
+
 function applyCapturedStateFromHistory(history) {
   captureState.w = [];
   captureState.b = [];
@@ -1107,6 +1203,7 @@ function showPromotionOverlay(from, to, color) {
 function syncBoardState(immediate = true, extraMessage = '') {
   const verboseHistory = chess.history({ verbose: true });
   lastMoveSquares = verboseHistory.length ? [verboseHistory.at(-1).from, verboseHistory.at(-1).to] : [];
+  if (!reviewMode) syncRecordedHistoryFromGame();
   applyCapturedStateFromHistory(verboseHistory);
   selectedSquare = null;
   hoverSquare = null;
@@ -1119,7 +1216,54 @@ function syncBoardState(immediate = true, extraMessage = '') {
   updateMoveLog();
   syncCaptured();
   updateHighlights();
+  updateAnalysisPanel();
   updateStatus(extraMessage);
+}
+
+function buildReplayGame(plyIndex) {
+  const replay = gameStartFen === 'start' ? new Chess() : new Chess(gameStartFen);
+  recordedHistoryVerbose.slice(0, plyIndex).forEach((move) => {
+    replay.move({ from: move.from, to: move.to, promotion: move.promotion });
+  });
+  return replay;
+}
+
+function syncReviewPosition(extraMessage = '') {
+  const replay = buildReplayGame(reviewIndex);
+  chess.load(replay.fen());
+  lastMoveSquares = reviewIndex > 0
+    ? [recordedHistoryVerbose[reviewIndex - 1].from, recordedHistoryVerbose[reviewIndex - 1].to]
+    : [];
+  applyCapturedStateFromHistory(recordedHistoryVerbose.slice(0, reviewIndex));
+  selectedSquare = null;
+  hoverSquare = null;
+  selectionLabel.textContent = 'None';
+  hoverSquareLabel.textContent = 'Pointer: off board';
+  legalTargets.clear();
+  legalMovesByTarget.clear();
+  hidePromotionOverlay();
+  rebuildPiecesFromBoard(true);
+  updateMoveLog();
+  syncCaptured();
+  updateHighlights();
+  updateAnalysisPanel();
+  updateStatus(extraMessage);
+}
+
+function enterReviewMode(targetIndex = recordedHistoryVerbose.length) {
+  if (!recordedHistoryVerbose.length) return;
+  reviewMode = true;
+  reviewIndex = THREE.MathUtils.clamp(targetIndex, 0, recordedHistoryVerbose.length);
+  syncReviewPosition(`Reviewing move ${reviewIndex}/${recordedHistoryVerbose.length}`);
+}
+
+function exitReviewMode() {
+  if (!reviewMode) return;
+  reviewMode = false;
+  reviewIndex = recordedHistoryVerbose.length;
+  const liveGame = buildReplayGame(recordedHistoryVerbose.length);
+  chess.load(liveGame.fen());
+  syncBoardState(true);
 }
 
 function getModeLabel() {
@@ -1224,7 +1368,7 @@ function getGameConclusion() {
 }
 
 function setOverlay(conclusion) {
-  if (!conclusion) {
+  if (!conclusion || reviewMode) {
     gameOverlay.hidden = true;
     return;
   }
@@ -1256,6 +1400,15 @@ function updateTimeControls() {
   });
 }
 
+function updateReviewControls() {
+  const hasMoves = recordedHistoryVerbose.length > 0;
+  reviewStartButton.disabled = !hasMoves || reviewIndex <= 0;
+  reviewPrevButton.disabled = !hasMoves || reviewIndex <= 0;
+  reviewNextButton.disabled = !hasMoves || !reviewMode || reviewIndex >= recordedHistoryVerbose.length;
+  reviewEndButton.disabled = !hasMoves || !reviewMode || reviewIndex >= recordedHistoryVerbose.length;
+  reviewExitButton.disabled = !reviewMode;
+}
+
 function getUndoBatchSize() {
   const historyLength = chess.history().length;
   if (!historyLength) return 0;
@@ -1264,8 +1417,9 @@ function getUndoBatchSize() {
 }
 
 function updateActionButtons() {
-  undoButton.disabled = getUndoBatchSize() === 0 || !promotionOverlay.hidden;
-  redoButton.disabled = redoStack.length === 0 || botThinking || !promotionOverlay.hidden;
+  undoButton.disabled = reviewMode || getUndoBatchSize() === 0 || !promotionOverlay.hidden;
+  redoButton.disabled = reviewMode || redoStack.length === 0 || botThinking || !promotionOverlay.hidden;
+  updateReviewControls();
 }
 
 function updateTurnVisuals(turn) {
@@ -1299,6 +1453,9 @@ function updateStatus(extraMessage = '') {
   if (conclusion) {
     statusMessage = conclusion.detail;
     promptMessage = conclusion.headline;
+  } else if (reviewMode) {
+    statusMessage = `Reviewing move ${reviewIndex}/${recordedHistoryVerbose.length}`;
+    promptMessage = 'Replay controls scrub through the finished game.';
   } else if (pendingPromotion) {
     statusMessage = `${turnName} choose a promotion piece`;
     promptMessage = `${turnName} must finish the pawn promotion.`;
@@ -1327,6 +1484,8 @@ function updateStatus(extraMessage = '') {
   turnPrompt.textContent = promptMessage;
   instructionLabel.textContent = botThinking
     ? 'Hold the board. The engine is finishing its move.'
+    : reviewMode
+      ? 'Use the review controls to step through the game.'
     : pendingPromotion
       ? 'Choose the promotion piece to complete the move.'
     : playerMode === 'pve'
@@ -1345,7 +1504,7 @@ function selectSquare(square) {
   const piece = chess.get(square);
   if (!piece || piece.color !== chess.turn()) return;
   if (playerMode === 'pve' && chess.turn() === BOT_COLOR) return;
-  if (isMatchOver()) return;
+  if (isMatchOver() || reviewMode) return;
   hidePromotionOverlay();
   selectedSquare = square;
   selectionLabel.textContent = `${PIECE_LABELS[`${piece.color}${piece.type}`]} on ${square}`;
@@ -1621,8 +1780,10 @@ function applyMove(from, to, promotion = 'q', options = {}) {
   lastMoveSquares = [move.from, move.to];
   clockState.lastTickAt = performance.now();
   clearSelection();
+  syncRecordedHistoryFromGame();
   updateMoveLog();
   syncCaptured();
+  updateAnalysisPanel();
   updateStatus(getMoveText(move));
   if (scheduleBot) scheduleBotTurn();
   return true;
@@ -1633,7 +1794,7 @@ function isHumanTurn() {
 }
 
 function trySquareClick(square) {
-  if (isMatchOver() || botThinking || !isHumanTurn() || pendingPromotion) return;
+  if (isMatchOver() || reviewMode || botThinking || !isHumanTurn() || pendingPromotion) return;
   if (!selectedSquare) {
     selectSquare(square);
     return;
@@ -1656,7 +1817,7 @@ function trySquareClick(square) {
 }
 
 function onPointerDown(event) {
-  if (isMatchOver() || botThinking || !isHumanTurn() || pendingPromotion) return;
+  if (isMatchOver() || reviewMode || botThinking || !isHumanTurn() || pendingPromotion) return;
   updatePointerFromEvent(event);
   const square = getHitSquare();
   if (!square) return;
@@ -1752,6 +1913,12 @@ canvas.addEventListener('pointerleave', onPointerLeave);
 
 document.querySelector('#resetButton').addEventListener('click', () => resetGame());
 document.querySelector('#overlayResetButton').addEventListener('click', () => resetGame());
+overlayReviewButton.addEventListener('click', () => enterReviewMode(recordedHistoryVerbose.length));
+reviewStartButton.addEventListener('click', () => enterReviewMode(0));
+reviewPrevButton.addEventListener('click', () => enterReviewMode(Math.max(0, reviewIndex - 1)));
+reviewNextButton.addEventListener('click', () => enterReviewMode(Math.min(recordedHistoryVerbose.length, reviewIndex + 1)));
+reviewEndButton.addEventListener('click', () => enterReviewMode(recordedHistoryVerbose.length));
+reviewExitButton.addEventListener('click', () => exitReviewMode());
 undoButton.addEventListener('click', () => {
   undoMoveBatch();
 });
@@ -1912,10 +2079,13 @@ function resetGame() {
   clearBotTimer();
   botThinking = false;
   forcedConclusion = null;
+  reviewMode = false;
+  reviewIndex = 0;
   boardFlipped = false;
   updateBoardOrientation();
   saveSettings();
   chess.reset();
+  gameStartFen = 'start';
   resetRedoStack();
   resetClocks();
   syncBoardState(true);
@@ -1928,7 +2098,10 @@ function loadFenForDebug(fen) {
   clearBotTimer();
   botThinking = false;
   forcedConclusion = null;
+  reviewMode = false;
   chess.load(fen);
+  gameStartFen = fen;
+  reviewIndex = 0;
   resetRedoStack();
   resetClocks();
   clockState.started = false;
@@ -1981,6 +2154,9 @@ window.__chessDebug = {
     boardFlipped,
     hoverSquare,
     clockStarted: clockState.started,
+    openingName: getOpeningName(),
+    reviewMode,
+    reviewIndex,
     botThinking,
     overlayVisible: !gameOverlay.hidden,
     promotionVisible: !promotionOverlay.hidden,
