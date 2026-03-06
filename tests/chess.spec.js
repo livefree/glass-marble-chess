@@ -87,7 +87,11 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().overlayVisible)).toBeFalsy();
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().boardFlipped)).toBeFalsy();
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().timeControlKey)).toBe('rapid5');
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().clockStarted)).toBeFalsy();
   await expect(window.locator('#whiteClockLabel')).toHaveText('05:00');
+  const openingClock = await window.evaluate(() => window.__chessDebug.getClockState());
+  await window.waitForTimeout(900);
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getClockState())).toEqual(openingClock);
   await expect(window.locator('button[data-theme="glass-marble"]')).toHaveClass(/active/);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().activeThemeKey)).toBe('glass-marble');
 
@@ -268,7 +272,7 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getFen())).toBe(drawFen);
 
   await window.locator('#overlayResetButton').click();
-  await window.evaluate(() => window.__chessDebug.setClocks({ w: 50, b: 60_000, timeKey: 'blitz1' }));
+  await window.evaluate(() => window.__chessDebug.setClocks({ w: 50, b: 60_000, timeKey: 'blitz1', started: true }));
   await expect(window.locator('#whiteClockLabel')).toContainText('00:01');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().overlayVisible)).toBeTruthy();
   await expect(window.locator('#overlayHeadline')).toHaveText('Black wins');

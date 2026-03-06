@@ -304,6 +304,7 @@ const captureState = { w: [], b: [] };
 const clockState = {
   w: TIME_CONTROLS.rapid5.ms,
   b: TIME_CONTROLS.rapid5.ms,
+  started: false,
   lastTickAt: null,
 };
 
@@ -1065,14 +1066,15 @@ function resetClocks() {
   const initial = getTimeControl().ms;
   clockState.w = initial;
   clockState.b = initial;
+  clockState.started = false;
   clockState.lastTickAt = performance.now();
 }
 
 function updateClockLabels() {
   whiteClockLabel.textContent = formatClock(clockState.w);
   blackClockLabel.textContent = formatClock(clockState.b);
-  whiteClockLabel.classList.toggle('clock-active', !forcedConclusion && !chess.isGameOver() && chess.turn() === 'w' && getTimeControl().ms != null);
-  blackClockLabel.classList.toggle('clock-active', !forcedConclusion && !chess.isGameOver() && chess.turn() === 'b' && getTimeControl().ms != null);
+  whiteClockLabel.classList.toggle('clock-active', clockState.started && !forcedConclusion && !chess.isGameOver() && chess.turn() === 'w' && getTimeControl().ms != null);
+  blackClockLabel.classList.toggle('clock-active', clockState.started && !forcedConclusion && !chess.isGameOver() && chess.turn() === 'b' && getTimeControl().ms != null);
   whiteClockLabel.classList.toggle('clock-expired', forcedConclusion?.expiredColor === 'w');
   blackClockLabel.classList.toggle('clock-expired', forcedConclusion?.expiredColor === 'b');
 }
@@ -1099,6 +1101,11 @@ function expireOnTime(color) {
 function tickClocks(now = performance.now()) {
   const activeTime = getTimeControl().ms;
   if (activeTime == null) {
+    clockState.lastTickAt = now;
+    updateClockLabels();
+    return;
+  }
+  if (!clockState.started) {
     clockState.lastTickAt = now;
     updateClockLabels();
     return;
@@ -1231,6 +1238,9 @@ function updateStatus(extraMessage = '') {
   } else if (playerMode === 'pve') {
     promptMessage = `Human vs engine · ${getModeLabel()}`;
   }
+  if (!conclusion && getTimeControl().ms != null && !clockState.started) {
+    promptMessage = 'Clock starts on the first move.';
+  }
 
   if (extraMessage) {
     statusMessage = `${statusMessage} · ${extraMessage}`;
@@ -1303,6 +1313,7 @@ function undoMoveBatch() {
     return false;
   }
   redoStack.push(batch);
+  clockState.started = chess.history().length > 0;
   clockState.lastTickAt = performance.now();
   syncBoardState(true, 'Move undone');
   return true;
@@ -1318,6 +1329,7 @@ function redoMoveBatch() {
   batch.forEach((move) => {
     applyMove(move.from, move.to, move.promotion ?? 'q', { clearRedo: false, scheduleBot: false });
   });
+  clockState.started = chess.history().length > 0;
   clockState.lastTickAt = performance.now();
   updateStatus('Move restored');
   scheduleBotTurn();
@@ -1431,6 +1443,7 @@ function applyMove(from, to, promotion = 'q', options = {}) {
   const move = chess.move({ from, to, promotion });
   if (!move) return false;
   if (clearRedo) resetRedoStack();
+  clockState.started = true;
 
   const movingPieceCode = `${move.color}${move.piece}`;
   let movingMesh = pieceMeshes.get(from);
@@ -1784,6 +1797,7 @@ function loadFenForDebug(fen) {
   chess.load(fen);
   resetRedoStack();
   resetClocks();
+  clockState.started = false;
   syncBoardState(true);
 }
 
@@ -1819,7 +1833,7 @@ window.__chessDebug = {
   getTurn: () => chess.turn(),
   getStatus: () => statusLabel.textContent,
   getMoveLog: () => chess.history(),
-  getClockState: () => ({ w: clockState.w, b: clockState.b, timeControlKey }),
+  getClockState: () => ({ w: clockState.w, b: clockState.b, timeControlKey, started: clockState.started }),
   getPieceAt: (square) => {
     const piece = chess.get(square);
     return piece ? `${piece.color}${piece.type}` : null;
@@ -1832,6 +1846,7 @@ window.__chessDebug = {
     timeControlKey,
     boardFlipped,
     hoverSquare,
+    clockStarted: clockState.started,
     botThinking,
     overlayVisible: !gameOverlay.hidden,
     promotionVisible: !promotionOverlay.hidden,
@@ -1840,10 +1855,11 @@ window.__chessDebug = {
     canRedo: !redoButton.disabled,
   }),
   setFen: (fen) => loadFenForDebug(fen),
-  setClocks: ({ w, b, timeKey = timeControlKey }) => {
+  setClocks: ({ w, b, timeKey = timeControlKey, started = false }) => {
     if (TIME_CONTROLS[timeKey]) timeControlKey = timeKey;
     clockState.w = w;
     clockState.b = b;
+    clockState.started = started;
     clockState.lastTickAt = performance.now();
     forcedConclusion = null;
     updateStatus();
