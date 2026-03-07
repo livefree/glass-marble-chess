@@ -192,6 +192,8 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().playerMode)).toBe('pve');
   await expect(window.locator('[data-mode="pve"]')).toHaveClass(/active/);
   await expect(window.locator('[data-difficulty="easy"]')).toHaveClass(/active/);
+  await expect(window.locator('#flipButton')).toBeDisabled();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().boardFlipped)).toBeFalsy();
 
   await window.evaluate(() => window.__chessDebug.clickSquare('e2'));
   await window.evaluate(() => window.__chessDebug.clickSquare('e4'));
@@ -227,6 +229,7 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await openSettings(window);
   await clickControl(window, '[data-mode="pvp"]');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().playerMode)).toBe('pvp');
+  await expect(window.locator('#flipButton')).toBeEnabled();
   await window.setViewportSize({ width: 1440, height: 948 });
   await expect.poll(async () => {
     const nextMetrics = await window.evaluate(() => window.__chessDebug.boardMetrics());

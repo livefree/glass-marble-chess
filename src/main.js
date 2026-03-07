@@ -1836,6 +1836,16 @@ function getModeLabel() {
   return playerMode === 'pve' ? `PvE · ${botDifficulty}` : 'PvP';
 }
 
+function getPreferredBoardFlip() {
+  if (playerMode === 'pve') return false;
+  return boardFlipped;
+}
+
+function syncPreferredBoardOrientation() {
+  boardFlipped = getPreferredBoardFlip();
+  updateBoardOrientation();
+}
+
 function getTimeControl() {
   return TIME_CONTROLS[timeControlKey];
 }
@@ -2008,6 +2018,7 @@ function getUndoBatchSize() {
 function updateActionButtons() {
   undoButton.disabled = reviewMode || getUndoBatchSize() === 0 || !promotionOverlay.hidden;
   redoButton.disabled = reviewMode || redoStack.length === 0 || botThinking || !promotionOverlay.hidden;
+  document.querySelector('#flipButton').disabled = playerMode === 'pve';
   updateReviewControls();
 }
 
@@ -2660,10 +2671,11 @@ soundToggleButton.addEventListener('click', () => {
   if (soundEnabled) ensureAudioContext();
 });
 document.querySelector('#flipButton').addEventListener('click', () => {
+  if (playerMode === 'pve') return;
   ensureAudioContext();
   boardFlipped = !boardFlipped;
   saveSettings();
-  updateBoardOrientation();
+  syncPreferredBoardOrientation();
   relayoutPieces(true);
   resize();
 });
@@ -2690,6 +2702,7 @@ modeControls.addEventListener('click', (event) => {
   ensureAudioContext();
   playerMode = button.dataset.mode;
   saveSettings();
+  syncPreferredBoardOrientation();
   resetGame();
 });
 
@@ -2826,7 +2839,7 @@ function resetGame() {
   activeMenuTab = 'setup';
   importedHeaders = {};
   positionComments.clear();
-  updateBoardOrientation();
+  syncPreferredBoardOrientation();
   updateSettingsMenu();
   saveSettings();
   chess.reset();
@@ -2853,6 +2866,7 @@ function loadFenForDebug(fen) {
   gameStartFen = fen;
   importedHeaders = { SetUp: '1', FEN: fen };
   positionComments.clear();
+  syncPreferredBoardOrientation();
   reviewIndex = 0;
   resetRedoStack();
   resetClocks();
@@ -2977,7 +2991,7 @@ loadSaveSlots();
 savePgnFileButton.disabled = !desktopBridge?.exportPgn;
 openPgnFileButton.disabled = !desktopBridge?.importPgn;
 updateSettingsMenu();
-updateBoardOrientation();
+syncPreferredBoardOrientation();
 applyTheme();
 updateSoundToggle();
 updateSaveSlotsDisplay();
