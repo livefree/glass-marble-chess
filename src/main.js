@@ -239,10 +239,13 @@ const app = document.querySelector('#app');
 app.innerHTML = `
   <div class="shell">
     <div class="hud">
-      <div>
-        <p class="eyebrow">Electron 3D Chess</p>
-        <h1>Glass Marble Chess</h1>
-        <p class="lede">Responsive marble board, luminous glass pieces, and a playable desktop chess table with human and engine modes.</p>
+      <div class="hud-header">
+        <div>
+          <p class="eyebrow">Electron 3D Chess</p>
+          <h1>Glass Marble Chess</h1>
+          <p class="lede">A desktop chess table with cinematic materials, live clocks, and a focused match view.</p>
+        </div>
+        <button type="button" class="menu-toggle" id="menuButton">Game Menu</button>
       </div>
 
       <section class="turn-hero" id="turnHero" data-turn="w">
@@ -252,6 +255,16 @@ app.innerHTML = `
         </div>
         <strong id="turnHeadline">White to move</strong>
         <p id="turnPrompt">White controls the first move.</p>
+        <div class="hero-clocks">
+          <div class="hero-clock">
+            <span class="label">White Clock</span>
+            <strong id="whiteClockLabel">05:00</strong>
+          </div>
+          <div class="hero-clock">
+            <span class="label">Black Clock</span>
+            <strong id="blackClockLabel">05:00</strong>
+          </div>
+        </div>
       </section>
 
       <div class="status-panel">
@@ -268,117 +281,28 @@ app.innerHTML = `
           <strong id="selectionLabel">None</strong>
         </div>
         <div>
-          <span class="label">White Clock</span>
-          <strong id="whiteClockLabel">05:00</strong>
-        </div>
-        <div>
-          <span class="label">Black Clock</span>
-          <strong id="blackClockLabel">05:00</strong>
-        </div>
-      </div>
-
-      <section class="play-config">
-        <div>
-          <span class="label">Mode</span>
-          <div class="segmented" id="modeControls">
-            <button type="button" class="segment active" data-mode="pvp">PvP</button>
-            <button type="button" class="segment" data-mode="pve">PvE</button>
-          </div>
-        </div>
-        <div>
-          <span class="label">Difficulty</span>
-          <div class="segmented" id="difficultyControls">
-            <button type="button" class="segment active" data-difficulty="easy">Easy</button>
-            <button type="button" class="segment" data-difficulty="medium">Medium</button>
-            <button type="button" class="segment" data-difficulty="hard">Hard</button>
-          </div>
-        </div>
-        <div>
-          <span class="label">Theme</span>
-          <div class="segmented" id="themeControls">
-            <button type="button" class="segment active" data-theme="glass-marble">Glass Marble</button>
-            <button type="button" class="segment" data-theme="obsidian-gold">Obsidian Gold</button>
-            <button type="button" class="segment" data-theme="jade-brass">Jade Brass</button>
-            <button type="button" class="segment" data-theme="rosewood-ivory">Rosewood Ivory</button>
-          </div>
-        </div>
-        <div>
-          <span class="label">Time</span>
-          <div class="segmented" id="timeControls">
-            <button type="button" class="segment active" data-time="rapid5">5 min</button>
-            <button type="button" class="segment" data-time="blitz1">1 min</button>
-            <button type="button" class="segment" data-time="rapid10">10 min</button>
-            <button type="button" class="segment" data-time="untimed">Untimed</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="analysis-panel">
-        <div>
           <span class="label">Opening</span>
           <strong id="openingLabel">Unclassified</strong>
-          <p id="analysisLabel">Review tools unlock once the game has moves.</p>
         </div>
-        <div class="review-controls">
-          <button type="button" id="reviewStartButton">|&lt;</button>
-          <button type="button" id="reviewPrevButton">&lt;</button>
-          <button type="button" id="reviewExitButton">Live</button>
-          <button type="button" id="reviewNextButton">&gt;</button>
-          <button type="button" id="reviewEndButton">&gt;|</button>
-        </div>
-      </section>
-
-      <section class="save-panel">
-        <div>
-          <span class="label">Saves & PGN</span>
-          <strong id="persistenceLabel">Export, import, or store a match in a local slot.</strong>
-        </div>
-        <div class="save-slots" id="saveSlots">
-          ${Array.from({ length: SAVE_SLOT_COUNT }, (_, index) => `
-            <article class="save-slot" data-slot="${index}">
-              <div>
-                <span class="label">Slot ${index + 1}</span>
-                <strong class="save-slot-title">Empty</strong>
-                <p class="save-slot-detail">No saved game.</p>
-              </div>
-              <div class="slot-actions">
-                <button type="button" class="slot-button" data-save-slot="${index}">Save</button>
-                <button type="button" class="slot-button" data-load-slot="${index}">Load</button>
-              </div>
-            </article>
-          `).join('')}
-        </div>
-        <div class="pgn-actions">
-          <button type="button" class="utility-button" id="exportPgnButton">Export PGN</button>
-          <button type="button" class="utility-button" id="importPgnButton">Import PGN</button>
-          <button type="button" class="utility-button" id="savePgnFileButton">Save .pgn</button>
-          <button type="button" class="utility-button" id="openPgnFileButton">Open .pgn</button>
-        </div>
-        <textarea id="pgnTextarea" spellcheck="false" placeholder="PGN appears here for export, or paste PGN to import."></textarea>
-        <div class="comment-panel">
-          <div>
-            <span class="label">Move Note</span>
-            <strong id="commentLabel">Move notes attach to a played position.</strong>
-          </div>
-          <textarea id="commentTextarea" spellcheck="false" placeholder="Add a note for the current live position or reviewed move."></textarea>
-          <div class="pgn-actions">
-            <button type="button" class="utility-button" id="saveCommentButton">Save Note</button>
-            <button type="button" class="utility-button" id="clearCommentButton">Clear Note</button>
-          </div>
-        </div>
-      </section>
+      </div>
 
       <div class="controls">
         <button id="undoButton">Undo</button>
         <button id="redoButton">Redo</button>
-        <button id="soundToggleButton">Sound On</button>
         <button id="resetButton">Reset Match</button>
         <button id="flipButton">Flip Board</button>
       </div>
 
       <div class="move-panels">
         <section>
-          <h2>Move Log</h2>
+          <div class="section-head">
+            <div>
+              <span class="label">Analysis</span>
+              <h2>Move Log</h2>
+            </div>
+            <button type="button" class="inline-menu-button" id="reviewMenuButton">Review</button>
+          </div>
+          <p id="analysisLabel">Review tools unlock once the game has moves.</p>
           <ol id="moveLog"></ol>
         </section>
         <section>
@@ -387,6 +311,113 @@ app.innerHTML = `
           <div id="capturedBlack" class="captured-row"></div>
         </section>
       </div>
+
+      <aside class="settings-drawer" id="settingsDrawer" hidden>
+        <div class="settings-head">
+          <div>
+            <span class="label">Menu</span>
+            <strong>Game Setup & Tools</strong>
+          </div>
+          <button type="button" class="menu-close" id="closeMenuButton">Close</button>
+        </div>
+
+        <section class="play-config">
+          <div>
+            <span class="label">Mode</span>
+            <div class="segmented" id="modeControls">
+              <button type="button" class="segment active" data-mode="pvp">PvP</button>
+              <button type="button" class="segment" data-mode="pve">PvE</button>
+            </div>
+          </div>
+          <div>
+            <span class="label">Difficulty</span>
+            <div class="segmented" id="difficultyControls">
+              <button type="button" class="segment active" data-difficulty="easy">Easy</button>
+              <button type="button" class="segment" data-difficulty="medium">Medium</button>
+              <button type="button" class="segment" data-difficulty="hard">Hard</button>
+            </div>
+          </div>
+          <div>
+            <span class="label">Theme</span>
+            <div class="segmented" id="themeControls">
+              <button type="button" class="segment active" data-theme="glass-marble">Glass Marble</button>
+              <button type="button" class="segment" data-theme="obsidian-gold">Obsidian Gold</button>
+              <button type="button" class="segment" data-theme="jade-brass">Jade Brass</button>
+              <button type="button" class="segment" data-theme="rosewood-ivory">Rosewood Ivory</button>
+            </div>
+          </div>
+          <div>
+            <span class="label">Time</span>
+            <div class="segmented" id="timeControls">
+              <button type="button" class="segment active" data-time="rapid5">5 min</button>
+              <button type="button" class="segment" data-time="blitz1">1 min</button>
+              <button type="button" class="segment" data-time="rapid10">10 min</button>
+              <button type="button" class="segment" data-time="untimed">Untimed</button>
+            </div>
+          </div>
+          <div>
+            <span class="label">Audio</span>
+            <div class="utility-row">
+              <button id="soundToggleButton">Sound On</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="analysis-panel">
+          <div>
+            <span class="label">Review</span>
+            <strong id="reviewLabel">Move navigation</strong>
+            <p>Use this strip to step through a finished or imported game.</p>
+          </div>
+          <div class="review-controls">
+            <button type="button" id="reviewStartButton">|&lt;</button>
+            <button type="button" id="reviewPrevButton">&lt;</button>
+            <button type="button" id="reviewExitButton">Live</button>
+            <button type="button" id="reviewNextButton">&gt;</button>
+            <button type="button" id="reviewEndButton">&gt;|</button>
+          </div>
+        </section>
+
+        <section class="save-panel">
+          <div>
+            <span class="label">Saves & PGN</span>
+            <strong id="persistenceLabel">Export, import, or store a match in a local slot.</strong>
+          </div>
+          <div class="pgn-actions">
+            <button type="button" class="utility-button" id="exportPgnButton">Export PGN</button>
+            <button type="button" class="utility-button" id="importPgnButton">Import PGN</button>
+            <button type="button" class="utility-button" id="savePgnFileButton">Save .pgn</button>
+            <button type="button" class="utility-button" id="openPgnFileButton">Open .pgn</button>
+          </div>
+          <div class="save-slots" id="saveSlots">
+            ${Array.from({ length: SAVE_SLOT_COUNT }, (_, index) => `
+              <article class="save-slot" data-slot="${index}">
+                <div>
+                  <span class="label">Slot ${index + 1}</span>
+                  <strong class="save-slot-title">Empty</strong>
+                  <p class="save-slot-detail">No saved game.</p>
+                </div>
+                <div class="slot-actions">
+                  <button type="button" class="slot-button" data-save-slot="${index}">Save</button>
+                  <button type="button" class="slot-button" data-load-slot="${index}">Load</button>
+                </div>
+              </article>
+            `).join('')}
+          </div>
+          <textarea id="pgnTextarea" spellcheck="false" placeholder="PGN appears here for export, or paste PGN to import."></textarea>
+          <div class="comment-panel">
+            <div>
+              <span class="label">Move Note</span>
+              <strong id="commentLabel">Move notes attach to a played position.</strong>
+            </div>
+            <textarea id="commentTextarea" spellcheck="false" placeholder="Add a note for the current live position or reviewed move."></textarea>
+            <div class="pgn-actions">
+              <button type="button" class="utility-button" id="saveCommentButton">Save Note</button>
+              <button type="button" class="utility-button" id="clearCommentButton">Clear Note</button>
+            </div>
+          </div>
+        </section>
+      </aside>
     </div>
 
     <div class="board-wrap">
@@ -417,9 +448,18 @@ app.innerHTML = `
         </div>
       </div>
       <div class="legend">
-        <span id="instructionLabel">Click one of your pieces, then a glowing destination square.</span>
-        <span id="hoverSquareLabel">Pointer: off board</span>
-        <span id="hintLabel">Special moves supported: castling, en passant, promotion to queen.</span>
+        <article class="legend-card">
+          <span class="label">Action</span>
+          <strong id="instructionLabel">Click one of your pieces, then a glowing destination square.</strong>
+        </article>
+        <article class="legend-card">
+          <span class="label">Pointer</span>
+          <strong id="hoverSquareLabel">Pointer: off board</strong>
+        </article>
+        <article class="legend-card">
+          <span class="label">Context</span>
+          <strong id="hintLabel">Special moves supported: castling, en passant, promotion to queen.</strong>
+        </article>
       </div>
     </div>
   </div>
@@ -428,6 +468,10 @@ app.innerHTML = `
 const canvas = document.querySelector('#scene');
 const boardWrap = document.querySelector('.board-wrap');
 const boardStage = document.querySelector('#boardStage');
+const menuButton = document.querySelector('#menuButton');
+const closeMenuButton = document.querySelector('#closeMenuButton');
+const reviewMenuButton = document.querySelector('#reviewMenuButton');
+const settingsDrawer = document.querySelector('#settingsDrawer');
 const turnLabel = document.querySelector('#turnLabel');
 const turnHeadline = document.querySelector('#turnHeadline');
 const turnPrompt = document.querySelector('#turnPrompt');
@@ -485,6 +529,7 @@ let activeThemeKey = 'glass-marble';
 let timeControlKey = 'rapid5';
 let soundEnabled = true;
 let boardFlipped = false;
+let settingsOpen = false;
 let selectedSquare = null;
 let lastMoveSquares = [];
 let hoverSquare = null;
@@ -514,6 +559,27 @@ const clockState = {
   lastTickAt: null,
 };
 const desktopBridge = window.chessDesktop ?? null;
+
+function updateSettingsMenu() {
+  settingsDrawer.hidden = !settingsOpen;
+  menuButton.setAttribute('aria-expanded', String(settingsOpen));
+  menuButton.classList.toggle('menu-open', settingsOpen);
+}
+
+function openSettingsMenu() {
+  settingsOpen = true;
+  updateSettingsMenu();
+}
+
+function closeSettingsMenu() {
+  settingsOpen = false;
+  updateSettingsMenu();
+}
+
+function toggleSettingsMenu() {
+  settingsOpen = !settingsOpen;
+  updateSettingsMenu();
+}
 
 const chess = new Chess();
 const scene = new THREE.Scene();
@@ -1969,19 +2035,19 @@ function updateStatus(extraMessage = '') {
   turnHeadline.textContent = conclusion ? conclusion.headline : `${turnName} to move`;
   turnPrompt.textContent = promptMessage;
   instructionLabel.textContent = botThinking
-    ? 'Hold the board. The engine is finishing its move.'
+    ? 'Engine is resolving the move.'
     : reviewMode
-      ? 'Use the review controls to step through the game.'
+      ? 'Open Game Menu to scrub through the replay.'
     : pendingPromotion
-      ? 'Choose the promotion piece to complete the move.'
+      ? 'Choose the promotion piece to finish the move.'
     : playerMode === 'pve'
-      ? 'You control White. Click your piece, then a glowing destination square.'
-      : 'Click one of your pieces, then a glowing destination square.';
+      ? 'Play White. Click or drag to a glowing square.'
+      : 'Click or drag a piece to a glowing square.';
   hintLabel.textContent = conclusion
     ? conclusion.detail
     : playerMode === 'pve'
-      ? `Mode: ${getModeLabel()} · Time: ${getTimeControl().label} · Special moves: castling, en passant, promotion choice.`
-      : `Time: ${getTimeControl().label} · Special moves: castling, en passant, promotion choice.`;
+      ? `${getModeLabel()} · ${getTimeControl().label} · Menu holds themes, saves, PGN, and notes.`
+      : `${getTimeControl().label} · Menu holds setup, review, saves, PGN, and notes.`;
 
   setOverlay(conclusion);
 }
@@ -2480,9 +2546,15 @@ canvas.addEventListener('pointerup', onPointerUp);
 canvas.addEventListener('pointercancel', onPointerCancel);
 canvas.addEventListener('pointerleave', onPointerLeave);
 
+menuButton.addEventListener('click', () => toggleSettingsMenu());
+closeMenuButton.addEventListener('click', () => closeSettingsMenu());
+reviewMenuButton.addEventListener('click', () => openSettingsMenu());
 document.querySelector('#resetButton').addEventListener('click', () => resetGame());
 document.querySelector('#overlayResetButton').addEventListener('click', () => resetGame());
-overlayReviewButton.addEventListener('click', () => enterReviewMode(recordedHistoryVerbose.length));
+overlayReviewButton.addEventListener('click', () => {
+  openSettingsMenu();
+  enterReviewMode(recordedHistoryVerbose.length);
+});
 reviewStartButton.addEventListener('click', () => enterReviewMode(0));
 reviewPrevButton.addEventListener('click', () => enterReviewMode(Math.max(0, reviewIndex - 1)));
 reviewNextButton.addEventListener('click', () => enterReviewMode(Math.min(recordedHistoryVerbose.length, reviewIndex + 1)));
@@ -2701,9 +2773,11 @@ function resetGame() {
   reviewMode = false;
   reviewIndex = 0;
   boardFlipped = false;
+  settingsOpen = false;
   importedHeaders = {};
   positionComments.clear();
   updateBoardOrientation();
+  updateSettingsMenu();
   saveSettings();
   chess.reset();
   gameStartFen = 'start';
@@ -2723,6 +2797,7 @@ function loadFenForDebug(fen) {
   botThinking = false;
   forcedConclusion = null;
   reviewMode = false;
+  settingsOpen = false;
   chess.load(fen);
   gameStartFen = fen;
   importedHeaders = { SetUp: '1', FEN: fen };
@@ -2733,6 +2808,7 @@ function loadFenForDebug(fen) {
   clockState.started = false;
   transpositionTable.clear();
   pgnTextarea.value = '';
+  updateSettingsMenu();
   syncBoardState(true);
 }
 
@@ -2783,6 +2859,7 @@ window.__chessDebug = {
     timeControlKey,
     soundEnabled,
     boardFlipped,
+    settingsOpen,
     hoverSquare,
     clockStarted: clockState.started,
     openingName: getOpeningName(),
@@ -2848,6 +2925,7 @@ loadSettings();
 loadSaveSlots();
 savePgnFileButton.disabled = !desktopBridge?.exportPgn;
 openPgnFileButton.disabled = !desktopBridge?.importPgn;
+updateSettingsMenu();
 updateBoardOrientation();
 applyTheme();
 updateSoundToggle();

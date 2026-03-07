@@ -80,6 +80,12 @@ async function clickControl(window, selector) {
   await window.locator(selector).evaluate((element) => element.click());
 }
 
+async function openSettings(window) {
+  if (await window.locator('#settingsDrawer').isVisible()) return;
+  await clickControl(window, '#menuButton');
+  await expect(window.locator('#settingsDrawer')).toBeVisible();
+}
+
 test.beforeAll(() => {
   execSync('npm run build', { cwd: rootDir, stdio: 'inherit' });
 });
@@ -112,6 +118,7 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect(window.locator('button[data-theme="glass-marble"]')).toHaveClass(/active/);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().activeThemeKey)).toBe('glass-marble');
 
+  await openSettings(window);
   await clickControl(window, 'button[data-theme="jade-brass"]');
   await expect(window.locator('button[data-theme="jade-brass"]')).toHaveClass(/active/);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().activeThemeKey)).toBe('jade-brass');
@@ -176,6 +183,7 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('c3'))).toBe('wn');
   await clickControl(window, '#resetButton');
 
+  await openSettings(window);
   await clickControl(window, '[data-mode="pve"]');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().playerMode)).toBe('pve');
   await expect(window.locator('[data-mode="pve"]')).toHaveClass(/active/);
@@ -193,6 +201,7 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog().length)).toBe(2);
 
   await clickControl(window, '#resetButton');
+  await openSettings(window);
   await clickControl(window, '[data-difficulty="hard"]');
   await window.evaluate(() => window.__chessDebug.clickSquare('e2'));
   await window.evaluate(() => window.__chessDebug.clickSquare('e4'));
@@ -211,6 +220,7 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getEngineStats().transpositionEntries)).toBeGreaterThan(0);
 
   await clickControl(window, '#resetButton');
+  await openSettings(window);
   await clickControl(window, '[data-mode="pvp"]');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().playerMode)).toBe('pvp');
   await window.setViewportSize({ width: 1440, height: 948 });
@@ -290,6 +300,7 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await clickControl(window, '#overlayReviewButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().reviewMode)).toBeTruthy();
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().overlayVisible)).toBeFalsy();
+  await expect(window.locator('#settingsDrawer')).toBeVisible();
   await expect(window.locator('#statusLabel')).toContainText('Reviewing move');
   await clickControl(window, '#reviewPrevButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().reviewIndex)).toBe(6);
@@ -334,6 +345,7 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await clickSquare(window, 'e2', 'square');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getFen())).toBe(timeoutFen);
 
+  await openSettings(window);
   await clickControl(window, '[data-mode="pve"]');
   await clickControl(window, '[data-difficulty="hard"]');
   await clickControl(window, '[data-time="rapid10"]');
@@ -360,10 +372,12 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect(window.locator('[data-time="rapid10"]')).toHaveClass(/active/);
   await expect(window.locator('#whiteClockLabel')).toHaveText('10:00');
 
+  await openSettings(window);
   await clickControl(window, '#soundToggleButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().soundEnabled)).toBeFalsy();
   await expect(window.locator('#soundToggleButton')).toHaveText('Sound Off');
 
+  await openSettings(window);
   await clickControl(window, '[data-mode="pvp"]');
   await clickControl(window, '[data-time="rapid5"]');
   await clickControl(window, '[data-theme="glass-marble"]');
@@ -374,6 +388,7 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
     ['g1', 'f3'],
     ['b8', 'c6'],
   ]);
+  await openSettings(window);
   await clickControl(window, '#exportPgnButton');
   await expect(window.locator('#pgnTextarea')).toHaveValue(/1\. e4 e5 2\. Nf3 Nc6/);
   const exportedPgn = await window.locator('#pgnTextarea').inputValue();
@@ -382,11 +397,13 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect(window.locator('#persistenceLabel')).toContainText('slot 1');
   await clickControl(window, '#resetButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog().length)).toBe(0);
+  await openSettings(window);
   await window.locator('[data-load-slot="0"]').click();
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog())).toEqual(['e4', 'e5', 'Nf3', 'Nc6']);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().openingName)).toBe('King Knight Opening');
   await expect(window.locator('#pgnTextarea')).toHaveValue(/1\. e4 e5 2\. Nf3 Nc6/);
   await clickControl(window, '#resetButton');
+  await openSettings(window);
   await window.locator('#pgnTextarea').fill(exportedPgn);
   await clickControl(window, '#importPgnButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog())).toEqual(['e4', 'e5', 'Nf3', 'Nc6']);
@@ -403,6 +420,7 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
     ['e2', 'e4'],
     ['e7', 'e5'],
   ]);
+  await openSettings(window);
   await window.locator('#commentTextarea').fill('Open center and mirrored reply.');
   await clickControl(window, '#saveCommentButton');
   await expect(window.locator('#persistenceLabel')).toContainText('note saved');
