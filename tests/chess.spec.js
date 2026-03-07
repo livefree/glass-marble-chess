@@ -87,6 +87,7 @@ async function openSettings(window, tab = 'setup') {
   }
   await clickControl(window, `[data-menu-tab="${tab}"]`);
   await expect(window.locator(`[data-menu-tab="${tab}"]`)).toHaveClass(/active/);
+  await expect(window.locator(`[data-settings-panel="${tab}"]`)).toBeVisible();
 }
 
 test.beforeAll(() => {
