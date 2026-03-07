@@ -49,17 +49,17 @@ button, strong, span, p, h1, h2 { user-select: none; }
   height: 100%;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
-  gap: 20px;
-  padding: 20px;
+  grid-template-columns: minmax(312px, 380px) minmax(0, 1fr);
+  gap: 16px;
+  padding: 16px;
 }
 
 .hud {
   min-height: 0;
   display: grid;
   grid-template-rows: auto auto auto auto minmax(0, 1fr);
-  gap: 16px;
-  padding: 22px;
+  gap: 12px;
+  padding: 18px;
   border: 1px solid var(--panel-border);
   border-radius: 28px;
   background: var(--panel);
@@ -103,13 +103,13 @@ button, strong, span, p, h1, h2 { user-select: none; }
 
 .eyebrow {
   margin: 0 0 4px;
-  font-size: 0.72rem;
-  letter-spacing: 0.2em;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--accent);
 }
 
-h1 { margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.9rem); line-height: 0.98; }
+h1 { margin: 0; font-size: clamp(1.45rem, 2.6vw, 2.2rem); line-height: 1; }
 .lede { margin: 12px 0 0; color: var(--muted); line-height: 1.55; max-width: 30ch; }
 
 .turn-hero,
@@ -121,7 +121,7 @@ h1 { margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.9rem); line-height: 0.98; }
   border: 1px solid rgba(148, 209, 255, 0.14);
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.03);
-  padding: 16px;
+  padding: 14px;
 }
 
 .turn-hero {
@@ -152,8 +152,8 @@ h1 { margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.9rem); line-height: 0.98; }
 
 .turn-hero strong {
   display: block;
-  font-size: 1.4rem;
-  margin-bottom: 6px;
+  font-size: 1.22rem;
+  margin-bottom: 4px;
 }
 
 .turn-hero p {
@@ -165,20 +165,20 @@ h1 { margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.9rem); line-height: 0.98; }
 .hero-clocks {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 14px;
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .hero-clock {
-  padding: 12px 14px;
-  border-radius: 18px;
+  padding: 10px 12px;
+  border-radius: 16px;
   background: rgba(3, 10, 18, 0.34);
   border: 1px solid rgba(161, 220, 255, 0.12);
 }
 
 .hero-clock strong {
   display: block;
-  font-size: 1.15rem;
+  font-size: 1.05rem;
 }
 
 .turn-hero[data-turn='w'] {
@@ -192,9 +192,9 @@ h1 { margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.9rem); line-height: 0.98; }
 .status-panel {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  min-height: 94px;
-  max-height: 94px;
+  gap: 10px;
+  min-height: 84px;
+  max-height: 84px;
   align-items: start;
 }
 
@@ -226,10 +226,10 @@ h1 { margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.9rem); line-height: 0.98; }
 .label {
   display: block;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.16em;
-  margin-bottom: 6px;
+  letter-spacing: 0.12em;
+  margin-bottom: 4px;
 }
 
 .play-config {
@@ -458,7 +458,7 @@ h1 { margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.9rem); line-height: 0.98; }
 .controls {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .controls button,
@@ -466,7 +466,7 @@ h1 { margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.9rem); line-height: 0.98; }
   appearance: none;
   border: 0;
   border-radius: 999px;
-  padding: 12px 18px;
+  padding: 10px 14px;
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 14px 28px rgba(79, 163, 208, 0.28);
@@ -486,8 +486,8 @@ h1 { margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.9rem); line-height: 0.98; }
 
 .move-panels {
   display: grid;
-  grid-template-rows: minmax(180px, 1fr) auto;
-  gap: 14px;
+  grid-template-rows: minmax(160px, 1fr) auto;
+  gap: 12px;
   min-height: 0;
 }
 
@@ -496,17 +496,18 @@ h1 { margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.9rem); line-height: 0.98; }
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .move-panels h2 { margin: 0; font-size: 1rem; }
 #moveLog {
   margin: 0;
-  padding-left: 22px;
+  padding-left: 20px;
   max-height: 100%;
   overflow: auto;
   color: var(--muted);
-  line-height: 1.5;
+  line-height: 1.35;
+  font-size: 0.92rem;
 }
 
 #moveLog li.active-row {
@@ -514,19 +515,19 @@ h1 { margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.9rem); line-height: 0.98; }
 }
 
 .captured-row {
-  min-height: 44px;
+  min-height: 36px;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .captured-row span {
-  padding: 6px 10px;
+  padding: 5px 8px;
   border-radius: 999px;
   background: rgba(132, 230, 255, 0.08);
   border: 1px solid rgba(132, 230, 255, 0.15);
-  font-size: 0.8rem;
+  font-size: 0.74rem;
   color: var(--text);
 }
 
@@ -545,13 +546,13 @@ h1 { margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.9rem); line-height: 0.98; }
 .board-topbar {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .topbar-chip {
   min-width: 0;
-  padding: 12px 14px;
-  border-radius: 18px;
+  padding: 10px 12px;
+  border-radius: 16px;
   border: 1px solid rgba(161, 220, 255, 0.14);
   background: rgba(4, 10, 18, 0.46);
   backdrop-filter: blur(10px);
@@ -580,22 +581,22 @@ h1 { margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.9rem); line-height: 0.98; }
   left: 50%;
   z-index: 1;
   transform: translateX(-50%);
-  min-width: 220px;
-  padding: 10px 14px;
+  min-width: 180px;
+  padding: 8px 12px;
   border-radius: 999px;
   border: 1px solid rgba(161, 220, 255, 0.18);
-  background: rgba(4, 10, 18, 0.68);
+  background: rgba(4, 10, 18, 0.52);
   backdrop-filter: blur(12px);
   text-align: center;
   pointer-events: none;
 }
 
 .board-side-top {
-  top: 12px;
+  top: 8px;
 }
 
 .board-side-bottom {
-  bottom: 12px;
+  bottom: 8px;
 }
 
 .board-side-indicator strong {
@@ -612,8 +613,8 @@ h1 { margin: 0; font-size: clamp(1.9rem, 3.4vw, 2.9rem); line-height: 0.98; }
 .legend {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  padding: 14px 18px;
+  gap: 10px;
+  padding: 12px 14px;
   border-radius: 18px;
   background: rgba(4, 10, 18, 0.58);
   border: 1px solid rgba(161, 220, 255, 0.16);
