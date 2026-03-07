@@ -1,4 +1,5 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,6 +18,7 @@ function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      preload: path.join(__dirname, 'preload.cjs'),
     },
   });
 
@@ -26,6 +28,28 @@ function createWindow() {
     win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   }
 }
+
+ipcMain.handle('chess:export-pgn', async (_event, { pgn, filePath = null, defaultPath = 'glass-marble-chess.pgn' }) => {
+  const targetPath = filePath ?? (await dialog.showSaveDialog({
+    title: 'Export PGN',
+    defaultPath,
+    filters: [{ name: 'PGN Files', extensions: ['pgn'] }],
+  })).filePath;
+  if (!targetPath) return { canceled: true };
+  await fs.writeFile(targetPath, pgn, 'utf8');
+  return { canceled: false, filePath: targetPath };
+});
+
+ipcMain.handle('chess:import-pgn', async (_event, { filePath = null } = {}) => {
+  const targetPath = filePath ?? (await dialog.showOpenDialog({
+    title: 'Open PGN',
+    properties: ['openFile'],
+    filters: [{ name: 'PGN Files', extensions: ['pgn'] }],
+  })).filePaths[0];
+  if (!targetPath) return { canceled: true };
+  const pgn = await fs.readFile(targetPath, 'utf8');
+  return { canceled: false, filePath: targetPath, pgn };
+});
 
 app.whenReady().then(() => {
   createWindow();

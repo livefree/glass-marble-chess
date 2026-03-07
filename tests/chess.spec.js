@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
+const tempPgnPath = path.join('/tmp', 'glass-marble-chess-roundtrip-test.pgn');
 
 const QA_INVENTORY = {
   claims: [
@@ -29,6 +30,7 @@ const QA_INVENTORY = {
     'Checkmate and draw both end the game with a visible overlay and blocked further play',
     'Mode, difficulty, theme, and time control persist across reloads',
     'Current games can be exported to PGN, imported from PGN, and resumed from local save slots',
+    'PGN comments persist through text export/import and desktop file round-trips',
   ],
   controls: [
     'Board click selection and move target click',
@@ -40,6 +42,7 @@ const QA_INVENTORY = {
     'Time control segmented control',
     'Promotion choice overlay',
     'Save slot and PGN controls',
+    'Move note editor and file PGN controls',
     'Move log, overlay, and turn spotlight updates',
   ],
   exploratory: [
@@ -394,6 +397,22 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().overlayVisible)).toBeTruthy();
   await expect(window.locator('#overlayHeadline')).toHaveText('Black wins');
   await expect(window.locator('#moveLog li').last()).toContainText('Qh4#');
+
+  await clickControl(window, '#resetButton');
+  await playMoves(window, [
+    ['e2', 'e4'],
+    ['e7', 'e5'],
+  ]);
+  await window.locator('#commentTextarea').fill('Open center and mirrored reply.');
+  await clickControl(window, '#saveCommentButton');
+  await expect(window.locator('#persistenceLabel')).toContainText('note saved');
+  await clickControl(window, '#exportPgnButton');
+  await expect(window.locator('#pgnTextarea')).toHaveValue(/\{Open center and mirrored reply\.\}/);
+  await expect.poll(() => window.evaluate((targetPath) => window.__chessDebug.exportPgnToFile(targetPath), tempPgnPath)).toBeTruthy();
+  await clickControl(window, '#resetButton');
+  await expect.poll(() => window.evaluate((targetPath) => window.__chessDebug.importPgnFromFile(targetPath), tempPgnPath)).toBeTruthy();
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getMoveLog())).toEqual(['e4', 'e5']);
+  await expect(window.locator('#commentTextarea')).toHaveValue('Open center and mirrored reply.');
 
   await electronApp.close();
 });

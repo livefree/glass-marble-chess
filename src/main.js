@@ -351,8 +351,21 @@ app.innerHTML = `
         <div class="pgn-actions">
           <button type="button" class="utility-button" id="exportPgnButton">Export PGN</button>
           <button type="button" class="utility-button" id="importPgnButton">Import PGN</button>
+          <button type="button" class="utility-button" id="savePgnFileButton">Save .pgn</button>
+          <button type="button" class="utility-button" id="openPgnFileButton">Open .pgn</button>
         </div>
         <textarea id="pgnTextarea" spellcheck="false" placeholder="PGN appears here for export, or paste PGN to import."></textarea>
+        <div class="comment-panel">
+          <div>
+            <span class="label">Move Note</span>
+            <strong id="commentLabel">Move notes attach to a played position.</strong>
+          </div>
+          <textarea id="commentTextarea" spellcheck="false" placeholder="Add a note for the current live position or reviewed move."></textarea>
+          <div class="pgn-actions">
+            <button type="button" class="utility-button" id="saveCommentButton">Save Note</button>
+            <button type="button" class="utility-button" id="clearCommentButton">Clear Note</button>
+          </div>
+        </div>
       </section>
 
       <div class="controls">
@@ -448,6 +461,12 @@ const saveSlotsElement = document.querySelector('#saveSlots');
 const pgnTextarea = document.querySelector('#pgnTextarea');
 const exportPgnButton = document.querySelector('#exportPgnButton');
 const importPgnButton = document.querySelector('#importPgnButton');
+const savePgnFileButton = document.querySelector('#savePgnFileButton');
+const openPgnFileButton = document.querySelector('#openPgnFileButton');
+const commentLabel = document.querySelector('#commentLabel');
+const commentTextarea = document.querySelector('#commentTextarea');
+const saveCommentButton = document.querySelector('#saveCommentButton');
+const clearCommentButton = document.querySelector('#clearCommentButton');
 const undoButton = document.querySelector('#undoButton');
 const redoButton = document.querySelector('#redoButton');
 const soundToggleButton = document.querySelector('#soundToggleButton');
@@ -486,6 +505,7 @@ let lastSoundCue = null;
 let lastEngineStats = { transpositionEntries: 0, depth: 0, endgame: false, nodeCount: 0, usedBook: false };
 const redoStack = [];
 const captureState = { w: [], b: [] };
+const positionComments = new Map();
 const transpositionTable = new Map();
 const clockState = {
   w: TIME_CONTROLS.rapid5.ms,
@@ -493,6 +513,7 @@ const clockState = {
   started: false,
   lastTickAt: null,
 };
+const desktopBridge = window.chessDesktop ?? null;
 
 const chess = new Chess();
 const scene = new THREE.Scene();
@@ -1269,6 +1290,30 @@ function updateSaveSlotsDisplay() {
   });
 }
 
+function syncCommentsFromGame(game = chess) {
+  positionComments.clear();
+  (game.getComments?.() ?? []).forEach(({ fen, comment }) => {
+    if (fen && comment) positionComments.set(fen, comment);
+  });
+}
+
+function getCommentTargetFen() {
+  if (reviewMode) return reviewIndex > 0 ? chess.fen() : null;
+  return recordedHistoryVerbose.length > 0 ? chess.fen() : null;
+}
+
+function updateCommentEditor() {
+  const targetFen = getCommentTargetFen();
+  const note = targetFen ? (positionComments.get(targetFen) ?? '') : '';
+  commentLabel.textContent = targetFen
+    ? (reviewMode ? `Note for reviewed move ${reviewIndex}` : `Note for live move ${recordedHistoryVerbose.length}`)
+    : 'Move notes attach to a played position.';
+  commentTextarea.value = note;
+  commentTextarea.disabled = !targetFen;
+  saveCommentButton.disabled = !targetFen;
+  clearCommentButton.disabled = !targetFen || !note;
+}
+
 function formatPgnDate(date = new Date()) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -1314,8 +1359,35 @@ function buildPgnExport() {
   });
   recordedHistoryVerbose.forEach((move) => {
     exportGame.move({ from: move.from, to: move.to, promotion: move.promotion });
+    const comment = positionComments.get(exportGame.fen());
+    if (comment) exportGame.setComment(comment);
   });
   return exportGame.pgn({ maxWidth: 88 });
+}
+
+async function exportPgnToFile(filePath = null) {
+  if (!desktopBridge?.exportPgn) {
+    setPersistenceStatus('File export is only available in the desktop app.');
+    return false;
+  }
+  const pgn = buildPgnExport();
+  pgnTextarea.value = pgn;
+  try {
+    const result = await desktopBridge.exportPgn({
+      pgn,
+      filePath,
+      defaultPath: 'glass-marble-chess.pgn',
+    });
+    if (result?.canceled) {
+      setPersistenceStatus('PGN file export canceled.');
+      return false;
+    }
+    setPersistenceStatus(`PGN saved to ${result.filePath}.`);
+    return true;
+  } catch (error) {
+    setPersistenceStatus(`PGN save failed: ${error.message}`);
+    return false;
+  }
 }
 
 function importPgnText(rawPgn, options = {}) {
@@ -1344,6 +1416,7 @@ function importPgnText(rawPgn, options = {}) {
   resetRedoStack();
   transpositionTable.clear();
   importedHeaders = parsedGame.getHeaders?.() ?? {};
+  syncCommentsFromGame(parsedGame);
   gameStartFen = importedHeaders.FEN ?? 'start';
 
   if (restoreState?.settings) {
@@ -1378,6 +1451,25 @@ function importPgnText(rawPgn, options = {}) {
   scheduleBotTurn();
   setPersistenceStatus(statusMessage);
   return true;
+}
+
+async function importPgnFromFile(filePath = null) {
+  if (!desktopBridge?.importPgn) {
+    setPersistenceStatus('File import is only available in the desktop app.');
+    return false;
+  }
+  try {
+    const result = await desktopBridge.importPgn({ filePath });
+    if (result?.canceled) {
+      setPersistenceStatus('PGN file import canceled.');
+      return false;
+    }
+    pgnTextarea.value = result.pgn;
+    return importPgnText(result.pgn, { statusMessage: `Imported ${result.filePath}.` });
+  } catch (error) {
+    setPersistenceStatus(`PGN open failed: ${error.message}`);
+    return false;
+  }
 }
 
 function saveCurrentGameToSlot(slotIndex) {
@@ -1416,6 +1508,25 @@ function loadGameFromSlot(slotIndex) {
     restoreState: entry,
     statusMessage: `Loaded slot ${slotIndex + 1}.`,
   });
+}
+
+function saveComment() {
+  const targetFen = getCommentTargetFen();
+  if (!targetFen) {
+    setPersistenceStatus('Play or review a move before saving a note.');
+    return false;
+  }
+  const note = commentTextarea.value.trim();
+  if (!note) {
+    positionComments.delete(targetFen);
+    updateCommentEditor();
+    setPersistenceStatus('Move note cleared.');
+    return true;
+  }
+  positionComments.set(targetFen, note);
+  updateCommentEditor();
+  setPersistenceStatus('Move note saved.');
+  return true;
 }
 
 function resetRedoStack() {
@@ -1567,6 +1678,7 @@ function syncBoardState(immediate = true, extraMessage = '') {
   syncCaptured();
   updateHighlights();
   updateAnalysisPanel();
+  updateCommentEditor();
   updateStatus(extraMessage);
 }
 
@@ -1597,6 +1709,7 @@ function syncReviewPosition(extraMessage = '') {
   syncCaptured();
   updateHighlights();
   updateAnalysisPanel();
+  updateCommentEditor();
   updateStatus(extraMessage);
 }
 
@@ -2237,6 +2350,7 @@ function applyMove(from, to, promotion = 'q', options = {}) {
   updateMoveLog();
   syncCaptured();
   updateAnalysisPanel();
+  updateCommentEditor();
   emitMoveSound(move);
   updateStatus(getMoveText(move));
   if (scheduleBot) scheduleBotTurn();
@@ -2394,6 +2508,21 @@ exportPgnButton.addEventListener('click', () => {
 importPgnButton.addEventListener('click', () => {
   ensureAudioContext();
   importPgnText(pgnTextarea.value);
+});
+savePgnFileButton.addEventListener('click', async () => {
+  ensureAudioContext();
+  await exportPgnToFile();
+});
+openPgnFileButton.addEventListener('click', async () => {
+  ensureAudioContext();
+  await importPgnFromFile();
+});
+saveCommentButton.addEventListener('click', () => {
+  saveComment();
+});
+clearCommentButton.addEventListener('click', () => {
+  commentTextarea.value = '';
+  saveComment();
 });
 undoButton.addEventListener('click', () => {
   ensureAudioContext();
@@ -2573,6 +2702,7 @@ function resetGame() {
   reviewIndex = 0;
   boardFlipped = false;
   importedHeaders = {};
+  positionComments.clear();
   updateBoardOrientation();
   saveSettings();
   chess.reset();
@@ -2596,6 +2726,7 @@ function loadFenForDebug(fen) {
   chess.load(fen);
   gameStartFen = fen;
   importedHeaders = { SetUp: '1', FEN: fen };
+  positionComments.clear();
   reviewIndex = 0;
   resetRedoStack();
   resetClocks();
@@ -2638,6 +2769,7 @@ window.__chessDebug = {
   getStatus: () => statusLabel.textContent,
   getMoveLog: () => chess.history(),
   getPgn: () => buildPgnExport(),
+  getCommentValue: () => commentTextarea.value,
   getClockState: () => ({ w: clockState.w, b: clockState.b, timeControlKey, started: clockState.started }),
   getPieceAt: (square) => {
     const piece = chess.get(square);
@@ -2667,6 +2799,12 @@ window.__chessDebug = {
   }),
   setFen: (fen) => loadFenForDebug(fen),
   importPgn: (pgn) => importPgnText(pgn),
+  importPgnFromFile: (filePath) => importPgnFromFile(filePath),
+  exportPgnToFile: (filePath) => exportPgnToFile(filePath),
+  saveComment: (comment) => {
+    commentTextarea.value = comment;
+    return saveComment();
+  },
   saveSlot: (index) => saveCurrentGameToSlot(index),
   loadSlot: (index) => loadGameFromSlot(index),
   getSaveSlots: () => saveSlots,
@@ -2708,6 +2846,8 @@ window.__chessDebug = {
 
 loadSettings();
 loadSaveSlots();
+savePgnFileButton.disabled = !desktopBridge?.exportPgn;
+openPgnFileButton.disabled = !desktopBridge?.importPgn;
 updateBoardOrientation();
 applyTheme();
 updateSoundToggle();

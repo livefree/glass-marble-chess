@@ -180,6 +180,11 @@ h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 0.94; }
   gap: 12px;
 }
 
+.comment-panel {
+  display: grid;
+  gap: 10px;
+}
+
 .analysis-panel p {
   margin: 8px 0 0;
   color: var(--muted);
@@ -251,6 +256,22 @@ h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 0.94; }
 
 #pgnTextarea::placeholder {
   color: rgba(153, 181, 199, 0.72);
+}
+
+#commentTextarea {
+  min-height: 96px;
+  resize: vertical;
+  border-radius: 18px;
+  border: 1px solid rgba(161, 220, 255, 0.18);
+  background: rgba(4, 12, 22, 0.72);
+  color: var(--text);
+  padding: 14px;
+  font: inherit;
+  line-height: 1.45;
+}
+
+#commentTextarea:disabled {
+  opacity: 0.55;
 }
 
 .review-controls {
