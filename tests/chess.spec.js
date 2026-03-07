@@ -198,6 +198,11 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect(window.locator('#blackTurnPill')).toHaveText('Engine');
   await expect(window.locator('#bottomSideLabel')).toContainText('You');
   await expect(window.locator('#topSideLabel')).toContainText('Engine');
+  const pveOrientation = await window.evaluate(() => ({
+    you: window.__chessDebug.getSquareScreenPosition('e2', 'piece'),
+    engine: window.__chessDebug.getSquareScreenPosition('e7', 'piece'),
+  }));
+  expect(pveOrientation.you.y).toBeGreaterThan(pveOrientation.engine.y);
 
   await window.evaluate(() => window.__chessDebug.clickSquare('e2'));
   await window.evaluate(() => window.__chessDebug.clickSquare('e4'));

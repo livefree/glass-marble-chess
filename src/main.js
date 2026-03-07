@@ -2788,7 +2788,7 @@ themeControls.addEventListener('click', (event) => {
 });
 
 function updateBoardOrientation() {
-  root.rotation.y = boardFlipped ? Math.PI : 0;
+  root.rotation.y = boardFlipped ? 0 : Math.PI;
 }
 
 function updateCameraFit(width, height) {
@@ -2946,7 +2946,7 @@ function projectSquare(square, mode = 'auto') {
   }
   const squareMesh = squareMeshes.get(square);
   if (squareMesh) {
-    return projectWorldPoint(squareMesh.getWorldPosition(new THREE.Vector3()));
+    return projectWorldPoint(squareMesh.localToWorld(new THREE.Vector3(0, 0.18, 0)));
   }
   return projectWorldPoint(squareCenterWorld(square));
 }
