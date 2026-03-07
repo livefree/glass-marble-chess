@@ -321,7 +321,13 @@ app.innerHTML = `
           <button type="button" class="menu-close" id="closeMenuButton">Close</button>
         </div>
 
-        <section class="play-config">
+        <div class="menu-tabs" id="menuTabs">
+          <button type="button" class="menu-tab active" data-menu-tab="setup">Setup</button>
+          <button type="button" class="menu-tab" data-menu-tab="review">Review</button>
+          <button type="button" class="menu-tab" data-menu-tab="library">Library</button>
+        </div>
+
+        <section class="play-config" data-settings-panel="setup">
           <div>
             <span class="label">Mode</span>
             <div class="segmented" id="modeControls">
@@ -363,7 +369,7 @@ app.innerHTML = `
           </div>
         </section>
 
-        <section class="analysis-panel">
+        <section class="analysis-panel" data-settings-panel="review" hidden>
           <div>
             <span class="label">Review</span>
             <strong id="reviewLabel">Move navigation</strong>
@@ -378,7 +384,7 @@ app.innerHTML = `
           </div>
         </section>
 
-        <section class="save-panel">
+        <section class="save-panel" data-settings-panel="library" hidden>
           <div>
             <span class="label">Saves & PGN</span>
             <strong id="persistenceLabel">Export, import, or store a match in a local slot.</strong>
@@ -421,6 +427,20 @@ app.innerHTML = `
     </div>
 
     <div class="board-wrap">
+      <div class="board-topbar">
+        <div class="topbar-chip">
+          <span class="label">Mode</span>
+          <strong id="boardModeLabel">PvP</strong>
+        </div>
+        <div class="topbar-chip">
+          <span class="label">Opening</span>
+          <strong id="boardOpeningLabel">Unclassified</strong>
+        </div>
+        <div class="topbar-chip topbar-status">
+          <span class="label">Status</span>
+          <strong id="boardStatusLabel">White to move</strong>
+        </div>
+      </div>
       <div class="board-stage" id="boardStage">
         <canvas id="scene"></canvas>
         <div class="promotion-overlay" id="promotionOverlay" hidden>
@@ -472,6 +492,7 @@ const menuButton = document.querySelector('#menuButton');
 const closeMenuButton = document.querySelector('#closeMenuButton');
 const reviewMenuButton = document.querySelector('#reviewMenuButton');
 const settingsDrawer = document.querySelector('#settingsDrawer');
+const menuTabs = document.querySelector('#menuTabs');
 const turnLabel = document.querySelector('#turnLabel');
 const turnHeadline = document.querySelector('#turnHeadline');
 const turnPrompt = document.querySelector('#turnPrompt');
@@ -482,6 +503,9 @@ const blackClockLabel = document.querySelector('#blackClockLabel');
 const openingLabel = document.querySelector('#openingLabel');
 const analysisLabel = document.querySelector('#analysisLabel');
 const persistenceLabel = document.querySelector('#persistenceLabel');
+const boardModeLabel = document.querySelector('#boardModeLabel');
+const boardOpeningLabel = document.querySelector('#boardOpeningLabel');
+const boardStatusLabel = document.querySelector('#boardStatusLabel');
 const moveLog = document.querySelector('#moveLog');
 const capturedWhite = document.querySelector('#capturedWhite');
 const capturedBlack = document.querySelector('#capturedBlack');
@@ -530,6 +554,7 @@ let timeControlKey = 'rapid5';
 let soundEnabled = true;
 let boardFlipped = false;
 let settingsOpen = false;
+let activeMenuTab = 'setup';
 let selectedSquare = null;
 let lastMoveSquares = [];
 let hoverSquare = null;
@@ -564,9 +589,16 @@ function updateSettingsMenu() {
   settingsDrawer.hidden = !settingsOpen;
   menuButton.setAttribute('aria-expanded', String(settingsOpen));
   menuButton.classList.toggle('menu-open', settingsOpen);
+  menuTabs.querySelectorAll('[data-menu-tab]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.menuTab === activeMenuTab);
+  });
+  settingsDrawer.querySelectorAll('[data-settings-panel]').forEach((panel) => {
+    panel.hidden = panel.dataset.settingsPanel !== activeMenuTab;
+  });
 }
 
-function openSettingsMenu() {
+function openSettingsMenu(tab = activeMenuTab) {
+  activeMenuTab = tab;
   settingsOpen = true;
   updateSettingsMenu();
 }
@@ -578,6 +610,11 @@ function closeSettingsMenu() {
 
 function toggleSettingsMenu() {
   settingsOpen = !settingsOpen;
+  updateSettingsMenu();
+}
+
+function setMenuTab(tab) {
+  activeMenuTab = tab;
   updateSettingsMenu();
 }
 
@@ -1643,6 +1680,7 @@ function updateAnalysisPanel() {
   } else {
     analysisLabel.textContent = `${materialText} · ${recordedHistoryVerbose.length} plies${reviewSuffix}`;
   }
+  boardOpeningLabel.textContent = opening;
 }
 
 function updateSoundToggle() {
@@ -2032,6 +2070,8 @@ function updateStatus(extraMessage = '') {
   }
 
   statusLabel.textContent = statusMessage;
+  boardModeLabel.textContent = getModeLabel();
+  boardStatusLabel.textContent = statusMessage;
   turnHeadline.textContent = conclusion ? conclusion.headline : `${turnName} to move`;
   turnPrompt.textContent = promptMessage;
   instructionLabel.textContent = botThinking
@@ -2548,11 +2588,16 @@ canvas.addEventListener('pointerleave', onPointerLeave);
 
 menuButton.addEventListener('click', () => toggleSettingsMenu());
 closeMenuButton.addEventListener('click', () => closeSettingsMenu());
-reviewMenuButton.addEventListener('click', () => openSettingsMenu());
+menuTabs.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-menu-tab]');
+  if (!button) return;
+  setMenuTab(button.dataset.menuTab);
+});
+reviewMenuButton.addEventListener('click', () => openSettingsMenu('review'));
 document.querySelector('#resetButton').addEventListener('click', () => resetGame());
 document.querySelector('#overlayResetButton').addEventListener('click', () => resetGame());
 overlayReviewButton.addEventListener('click', () => {
-  openSettingsMenu();
+  openSettingsMenu('review');
   enterReviewMode(recordedHistoryVerbose.length);
 });
 reviewStartButton.addEventListener('click', () => enterReviewMode(0));
@@ -2774,6 +2819,7 @@ function resetGame() {
   reviewIndex = 0;
   boardFlipped = false;
   settingsOpen = false;
+  activeMenuTab = 'setup';
   importedHeaders = {};
   positionComments.clear();
   updateBoardOrientation();
@@ -2798,6 +2844,7 @@ function loadFenForDebug(fen) {
   forcedConclusion = null;
   reviewMode = false;
   settingsOpen = false;
+  activeMenuTab = 'setup';
   chess.load(fen);
   gameStartFen = fen;
   importedHeaders = { SetUp: '1', FEN: fen };

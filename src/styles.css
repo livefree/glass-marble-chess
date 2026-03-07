@@ -267,6 +267,29 @@ h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 0.94; }
   gap: 12px;
 }
 
+.menu-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.menu-tab {
+  appearance: none;
+  border: 1px solid rgba(161, 220, 255, 0.16);
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.menu-tab.active {
+  background: linear-gradient(135deg, rgba(114, 215, 255, 0.92), rgba(255, 207, 139, 0.86));
+  color: #041018;
+  border-color: transparent;
+}
+
 .utility-row {
   display: flex;
   flex-wrap: wrap;
@@ -487,13 +510,38 @@ h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 0.94; }
 .board-wrap {
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 14px;
   padding: 12px;
   border-radius: 34px;
   border: 1px solid rgba(158, 213, 255, 0.16);
   box-shadow: var(--shadow);
   background: radial-gradient(circle at top, rgba(120, 179, 255, 0.18), rgba(3, 8, 15, 0.92));
+}
+
+.board-topbar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.topbar-chip {
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(161, 220, 255, 0.14);
+  background: rgba(4, 10, 18, 0.46);
+  backdrop-filter: blur(10px);
+}
+
+.topbar-chip strong {
+  display: block;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.topbar-status {
+  box-shadow: inset 0 0 0 1px rgba(132, 230, 255, 0.08);
 }
 
 .board-stage {
@@ -671,7 +719,8 @@ h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 0.94; }
   .legend,
   .status-panel,
   .hero-clocks,
-  .controls {
+  .controls,
+  .board-topbar {
     grid-template-columns: 1fr;
   }
 
@@ -683,8 +732,13 @@ h1 { margin: 0; font-size: clamp(2.4rem, 5vw, 4rem); line-height: 0.94; }
 @media (max-width: 720px) {
   .hud-header,
   .settings-head,
-  .section-head {
+  .section-head,
+  .menu-tabs {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .menu-tabs {
+    display: flex;
   }
 }
