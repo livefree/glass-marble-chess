@@ -442,6 +442,14 @@ app.innerHTML = `
       </div>
       <div class="board-stage" id="boardStage">
         <canvas id="scene"></canvas>
+        <div class="board-side-indicator board-side-top" id="topSideIndicator">
+          <span class="label">Far Side</span>
+          <strong id="topSideLabel">Black · Upper Side</strong>
+        </div>
+        <div class="board-side-indicator board-side-bottom" id="bottomSideIndicator">
+          <span class="label">Near Side</span>
+          <strong id="bottomSideLabel">White · Lower Side</strong>
+        </div>
         <div class="promotion-overlay" id="promotionOverlay" hidden>
           <div class="promotion-card">
             <p class="overlay-eyebrow">Promotion</p>
@@ -505,6 +513,8 @@ const persistenceLabel = document.querySelector('#persistenceLabel');
 const boardModeLabel = document.querySelector('#boardModeLabel');
 const boardOpeningLabel = document.querySelector('#boardOpeningLabel');
 const boardStatusLabel = document.querySelector('#boardStatusLabel');
+const topSideLabel = document.querySelector('#topSideLabel');
+const bottomSideLabel = document.querySelector('#bottomSideLabel');
 const moveLog = document.querySelector('#moveLog');
 const capturedWhite = document.querySelector('#capturedWhite');
 const capturedBlack = document.querySelector('#capturedBlack');
@@ -747,6 +757,10 @@ const checkMaterial = new THREE.MeshPhysicalMaterial({
   roughness: 0.1,
   clearcoat: 1,
 });
+const sideMarkerMaterials = {
+  w: new THREE.MeshStandardMaterial({ color: 0xe8f0ff, metalness: 0.55, roughness: 0.24 }),
+  b: new THREE.MeshStandardMaterial({ color: 0xc7a35a, metalness: 0.72, roughness: 0.2 }),
+};
 
 function makeMarbleMap(lightHex, darkHex) {
   const size = 256;
@@ -1042,6 +1056,18 @@ function createPieceMesh(pieceCode) {
     group.add(chest, neck, head, ear);
   }
 
+  const markerMaterial = sideMarkerMaterials[pieceCode[0]];
+  const baseMarker = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.03, 12, 36), markerMaterial);
+  baseMarker.rotation.x = Math.PI / 2;
+  baseMarker.position.y = 0.19;
+  group.add(baseMarker);
+  if (pieceCode[0] === 'b') {
+    const innerMarker = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.025, 12, 36), markerMaterial);
+    innerMarker.rotation.x = Math.PI / 2;
+    innerMarker.position.y = 0.24;
+    group.add(innerMarker);
+  }
+
   group.userData.floatOffset = Math.random() * Math.PI * 2;
   group.userData.idleHeight = 0.02 + PIECE_VALUES[type] * 0.002;
   group.userData.animation = null;
@@ -1205,8 +1231,8 @@ function updateHighlights() {
 }
 
 function syncCaptured() {
-  capturedWhite.innerHTML = captureState.w.map((piece) => `<span>${PIECE_LABELS[piece]}</span>`).join('');
-  capturedBlack.innerHTML = captureState.b.map((piece) => `<span>${PIECE_LABELS[piece]}</span>`).join('');
+  capturedWhite.innerHTML = captureState.w.map((piece) => `<span>${getPieceDisplayName(piece)}</span>`).join('');
+  capturedBlack.innerHTML = captureState.b.map((piece) => `<span>${getPieceDisplayName(piece)}</span>`).join('');
 }
 
 function layoutPieceMesh(mesh, pieceCode, square, immediate = false) {
@@ -1836,6 +1862,24 @@ function getModeLabel() {
   return playerMode === 'pve' ? `PvE · ${botDifficulty}` : 'PvP';
 }
 
+function getSideRoleName(color) {
+  if (playerMode !== 'pve') return color === 'w' ? 'White' : 'Black';
+  return color === 'w' ? 'You' : 'Engine';
+}
+
+function getPieceDisplayName(pieceCode) {
+  const sideName = getSideRoleName(pieceCode[0]);
+  const pieceName = PIECE_LABELS[pieceCode].split(' ').slice(1).join(' ');
+  return `${sideName} ${pieceName}`;
+}
+
+function getBoardSideSummary(color, positionLabel) {
+  if (playerMode === 'pve') {
+    return `${getSideRoleName(color)} · ${positionLabel}`;
+  }
+  return `${color === 'w' ? 'White' : 'Black'} · ${positionLabel}`;
+}
+
 function getPreferredBoardFlip() {
   if (playerMode === 'pve') return false;
   return boardFlipped;
@@ -2024,21 +2068,26 @@ function updateActionButtons() {
 
 function updateTurnVisuals(turn) {
   turnHero.dataset.turn = turn;
+  whiteTurnPill.textContent = getSideRoleName('w');
+  blackTurnPill.textContent = getSideRoleName('b');
   whiteTurnPill.classList.toggle('active', turn === 'w');
   blackTurnPill.classList.toggle('active', turn === 'b');
+  bottomSideLabel.textContent = getBoardSideSummary(boardFlipped ? 'b' : 'w', 'Near Side');
+  topSideLabel.textContent = getBoardSideSummary(boardFlipped ? 'w' : 'b', 'Far Side');
 }
 
 function getMoveText(move) {
-  if (move.flags.includes('k')) return `${move.color === 'w' ? 'White' : 'Black'} castled kingside`;
-  if (move.flags.includes('q')) return `${move.color === 'w' ? 'White' : 'Black'} castled queenside`;
-  if (move.flags.includes('e')) return `${move.color === 'w' ? 'White' : 'Black'} en passant on ${move.to}`;
-  if (move.flags.includes('p')) return `${move.color === 'w' ? 'White' : 'Black'} promoted to ${PROMOTION_LABELS[move.promotion]} on ${move.to}`;
-  return `${move.color === 'w' ? 'White' : 'Black'} played ${move.san}`;
+  const actor = getSideRoleName(move.color);
+  if (move.flags.includes('k')) return `${actor} castled kingside`;
+  if (move.flags.includes('q')) return `${actor} castled queenside`;
+  if (move.flags.includes('e')) return `${actor} en passant on ${move.to}`;
+  if (move.flags.includes('p')) return `${actor} promoted to ${PROMOTION_LABELS[move.promotion]} on ${move.to}`;
+  return `${actor} played ${move.san}`;
 }
 
 function updateStatus(extraMessage = '') {
   const turn = chess.turn();
-  const turnName = turn === 'w' ? 'White' : 'Black';
+  const turnName = getSideRoleName(turn);
   turnLabel.textContent = turnName;
   updateTurnVisuals(turn);
   updateModeControls();
@@ -2069,7 +2118,7 @@ function updateStatus(extraMessage = '') {
     statusMessage = `${turnName} in check`;
     promptMessage = `${turnName} must answer the check.`;
   } else if (playerMode === 'pve') {
-    promptMessage = `Human vs engine · ${getModeLabel()}`;
+    promptMessage = `You play from the near side.`;
   }
   if (!conclusion && getTimeControl().ms != null && !clockState.started) {
     promptMessage = 'Clock starts on the first move.';
@@ -2096,7 +2145,7 @@ function updateStatus(extraMessage = '') {
     : pendingPromotion
       ? 'Choose the promotion piece to finish the move.'
     : playerMode === 'pve'
-      ? 'Play White. Click or drag to a glowing square.'
+      ? 'You are the near-side army. Click or drag to a glowing square.'
       : 'Click or drag a piece to a glowing square.';
   hintLabel.textContent = conclusion
     ? conclusion.detail
@@ -2114,7 +2163,7 @@ function selectSquare(square) {
   if (isMatchOver() || reviewMode) return;
   hidePromotionOverlay();
   selectedSquare = square;
-  selectionLabel.textContent = `${PIECE_LABELS[`${piece.color}${piece.type}`]} on ${square}`;
+  selectionLabel.textContent = `${getPieceDisplayName(`${piece.color}${piece.type}`)} on ${square}`;
   legalTargets.clear();
   legalMovesByTarget.clear();
   chess.moves({ square, verbose: true }).forEach((move) => {
