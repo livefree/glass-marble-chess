@@ -240,10 +240,9 @@ app.innerHTML = `
   <div class="shell">
     <div class="hud">
       <div class="hud-header">
-        <div>
+        <div class="hud-brand">
           <p class="eyebrow">Electron 3D Chess</p>
           <h1>Glass Marble Chess</h1>
-          <p class="lede">A desktop chess table with cinematic materials, live clocks, and a focused match view.</p>
         </div>
         <button type="button" class="menu-toggle" id="menuButton">Game Menu</button>
       </div>
@@ -267,6 +266,13 @@ app.innerHTML = `
         </div>
       </section>
 
+      <div class="controls">
+        <button id="undoButton">Undo</button>
+        <button id="redoButton">Redo</button>
+        <button id="resetButton">Reset Match</button>
+        <button id="flipButton">Flip Board</button>
+      </div>
+
       <div class="status-panel">
         <div>
           <span class="label">Turn</span>
@@ -284,13 +290,6 @@ app.innerHTML = `
           <span class="label">Opening</span>
           <strong id="openingLabel">Unclassified</strong>
         </div>
-      </div>
-
-      <div class="controls">
-        <button id="undoButton">Undo</button>
-        <button id="redoButton">Redo</button>
-        <button id="resetButton">Reset Match</button>
-        <button id="flipButton">Flip Board</button>
       </div>
 
       <div class="move-panels">
@@ -2040,23 +2039,23 @@ function updateStatus(extraMessage = '') {
   let promptMessage = `${turnName} controls the next move.`;
   const conclusion = getGameConclusion();
 
-  if (conclusion) {
-    statusMessage = conclusion.detail;
-    promptMessage = conclusion.headline;
-  } else if (reviewMode) {
-    statusMessage = `Reviewing move ${reviewIndex}/${recordedHistoryVerbose.length}`;
+  if (reviewMode) {
+    statusMessage = `Review ${reviewIndex}/${recordedHistoryVerbose.length}`;
     promptMessage = 'Replay controls scrub through the finished game.';
+  } else if (conclusion) {
+    statusMessage = conclusion.headline;
+    promptMessage = conclusion.headline;
   } else if (pendingPromotion) {
-    statusMessage = `${turnName} choose a promotion piece`;
+    statusMessage = 'Choose promotion';
     promptMessage = `${turnName} must finish the pawn promotion.`;
   } else if (botThinking) {
-    statusMessage = `${turnName} engine thinking`;
+    statusMessage = 'Engine thinking';
     promptMessage = `${turnName} engine is searching ${botDifficulty} lines.`;
   } else if (playerMode === 'pve' && turn === BOT_COLOR) {
-    statusMessage = 'Black engine to move';
+    statusMessage = 'Engine to move';
     promptMessage = `PvE · ${botDifficulty} engine on move.`;
   } else if (chess.inCheck()) {
-    statusMessage = `${turnName} king in check`;
+    statusMessage = `${turnName} in check`;
     promptMessage = `${turnName} must answer the check.`;
   } else if (playerMode === 'pve') {
     promptMessage = `Human vs engine · ${getModeLabel()}`;
@@ -2066,7 +2065,12 @@ function updateStatus(extraMessage = '') {
   }
 
   if (extraMessage) {
-    statusMessage = `${statusMessage} · ${extraMessage}`;
+    if (extraMessage.includes('Checkmate')) statusMessage = 'Checkmate';
+    else if (extraMessage.includes('castled')) statusMessage = 'Castled';
+    else if (extraMessage.includes('en passant')) statusMessage = 'En passant';
+    else if (extraMessage.includes('promoted')) statusMessage = 'Promotion';
+    else if (extraMessage.includes('undone')) statusMessage = 'Move undone';
+    else if (extraMessage.includes('restored')) statusMessage = 'Move restored';
   }
 
   statusLabel.textContent = statusMessage;

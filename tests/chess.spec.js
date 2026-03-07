@@ -254,7 +254,7 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
     ['g8', 'f6'],
     ['e1', 'g1'],
   ]);
-  await expect(window.locator('#statusLabel')).toContainText('castled kingside');
+  await expect(window.locator('#statusLabel')).toContainText('Castled');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getFen())).toContain('RNBQ1RK1');
 
   await clickControl(window, '#resetButton');
@@ -265,7 +265,7 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
     ['d7', 'd5'],
     ['e5', 'd6'],
   ]);
-  await expect(window.locator('#statusLabel')).toContainText('en passant');
+  await expect(window.locator('#statusLabel')).toContainText('En passant');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('d6'))).toBe('wp');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('d5'))).toBeNull();
 
@@ -292,7 +292,8 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
     ['h5', 'f7'],
   ]);
   const mateFen = await window.evaluate(() => window.__chessDebug.getFen());
-  await expect(window.locator('#statusLabel')).toContainText('Checkmate ends the game');
+  await expect(window.locator('#statusLabel')).toContainText('White wins');
+  await expect(window.locator('#overlayDetail')).toContainText('Checkmate ends the game');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.isGameOver())).toBeTruthy();
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().overlayVisible)).toBeTruthy();
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().lastSoundCue)).toBe('gameover');
@@ -305,7 +306,7 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().overlayVisible)).toBeFalsy();
   await expect(window.locator('#settingsDrawer')).toBeVisible();
   await expect(window.locator('[data-menu-tab="review"]')).toHaveClass(/active/);
-  await expect(window.locator('#statusLabel')).toContainText('Reviewing move');
+  await expect(window.locator('#statusLabel')).toContainText('Review');
   await clickControl(window, '#reviewPrevButton');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().reviewIndex)).toBe(6);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getPieceAt('h5'))).toBe('wq');
@@ -332,7 +333,8 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getFen())).toBe(mateFen);
 
   await window.evaluate(() => window.__chessDebug.setFen('7k/5Q2/6K1/8/8/8/8/8 b - - 0 1'));
-  await expect(window.locator('#statusLabel')).toContainText('Stalemate leaves no legal move');
+  await expect(window.locator('#statusLabel')).toContainText('Draw');
+  await expect(window.locator('#overlayDetail')).toContainText('Stalemate leaves no legal move');
   await expect(window.locator('#overlayHeadline')).toHaveText('Draw');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.isGameOver())).toBeTruthy();
   const drawFen = await window.evaluate(() => window.__chessDebug.getFen());
