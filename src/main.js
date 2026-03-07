@@ -232,6 +232,33 @@ const THEMES = {
     rimLight: 0xffb5bf,
     warmLight: 0xffd49f,
   },
+  'crystal-atelier': {
+    label: 'Crystal Atelier',
+    boardLight: 0xdff6ff,
+    boardDark: 0x96b8ff,
+    detailLight: 0xffffff,
+    detailDark: 0xd3e5ff,
+    lightSurface: 'crystal',
+    darkSurface: 'crystal',
+    lightMaterial: { roughness: 0.02, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.02, transmission: 0.88, thickness: 0.8, ior: 1.34, transparent: true, opacity: 0.94 },
+    darkMaterial: { roughness: 0.04, metalness: 0.02, clearcoat: 1, clearcoatRoughness: 0.03, transmission: 0.74, thickness: 0.9, ior: 1.32, transparent: true, opacity: 0.9 },
+    fog: 0x090914,
+    envStops: ['#fff2d7', '#9ad6ff', '#2d3565', '#05050b'],
+    accent: '#b6edff',
+    accentWarm: '#ffd99a',
+    boardBase: 0xa8d4ff,
+    baseSurface: 'crystal',
+    baseDetail: 0xffffff,
+    baseMaterial: { roughness: 0.02, metalness: 0.02, clearcoat: 1, clearcoatRoughness: 0.01, transmission: 0.92, thickness: 2.4, ior: 1.36, transparent: true, opacity: 0.82 },
+    glow: 0x7ec8ff,
+    pieces: {
+      w: { kind: 'crystal', color: 0xeef9ff, detail: 0xffffff, emissive: 0xb0e8ff, emissiveIntensity: 0.18 },
+      b: { kind: 'crystal', color: 0xffd79f, detail: 0xfff2db, emissive: 0xffc472, emissiveIntensity: 0.12 },
+    },
+    keyLight: 0xfefcff,
+    rimLight: 0xa7d8ff,
+    warmLight: 0xffc86a,
+  },
 };
 const BOT_COLOR = 'b';
 
@@ -349,6 +376,7 @@ app.innerHTML = `
               <button type="button" class="segment" data-theme="obsidian-gold">Obsidian Gold</button>
               <button type="button" class="segment" data-theme="jade-brass">Jade Brass</button>
               <button type="button" class="segment" data-theme="rosewood-ivory">Rosewood Ivory</button>
+              <button type="button" class="segment" data-theme="crystal-atelier">Crystal Atelier</button>
             </div>
           </div>
           <div>
@@ -859,10 +887,52 @@ function makeStoneMap(baseHex, detailHex) {
   return texture;
 }
 
+function makeCrystalMap(baseHex, detailHex) {
+  const size = 256;
+  const localCanvas = document.createElement('canvas');
+  localCanvas.width = size;
+  localCanvas.height = size;
+  const ctx = localCanvas.getContext('2d');
+  const gradient = ctx.createLinearGradient(0, 0, size, size);
+  gradient.addColorStop(0, `#${baseHex.toString(16).padStart(6, '0')}`);
+  gradient.addColorStop(0.38, '#ffffff');
+  gradient.addColorStop(1, `#${detailHex.toString(16).padStart(6, '0')}`);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+
+  for (let i = 0; i < 34; i += 1) {
+    ctx.beginPath();
+    ctx.strokeStyle = `rgba(${(detailHex >> 16) & 255}, ${(detailHex >> 8) & 255}, ${detailHex & 255}, ${0.06 + (i % 5) * 0.02})`;
+    ctx.lineWidth = 1 + (i % 3);
+    const startX = Math.random() * size;
+    const startY = Math.random() * size;
+    ctx.moveTo(startX, startY);
+    for (let step = 0; step < 4; step += 1) {
+      ctx.lineTo(Math.random() * size, Math.random() * size);
+    }
+    ctx.stroke();
+  }
+
+  for (let i = 0; i < 80; i += 1) {
+    const radius = 2 + Math.random() * 10;
+    ctx.fillStyle = `rgba(255, 255, 255, ${0.02 + Math.random() * 0.05})`;
+    ctx.beginPath();
+    ctx.arc(Math.random() * size, Math.random() * size, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const texture = new THREE.CanvasTexture(localCanvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(1.25, 1.25);
+  return texture;
+}
+
 function makeSurfaceMap(kind, baseHex, detailHex) {
   if (kind === 'wood') return makeWoodMap(baseHex, detailHex);
   if (kind === 'brushed-metal') return makeBrushedMetalMap(baseHex, detailHex);
   if (kind === 'stone' || kind === 'jade' || kind === 'ivory') return makeStoneMap(baseHex, detailHex);
+  if (kind === 'crystal') return makeCrystalMap(baseHex, detailHex);
   return makeMarbleMap(baseHex, detailHex);
 }
 
@@ -897,6 +967,17 @@ function configurePieceMaterial(material, pieceTheme) {
     material.transmission = 0.76;
     material.thickness = 1.3;
     material.ior = 1.26;
+  } else if (pieceTheme.kind === 'crystal') {
+    material.transparent = true;
+    material.opacity = 0.88;
+    material.metalness = 0.02;
+    material.roughness = 0.015;
+    material.clearcoat = 1;
+    material.clearcoatRoughness = 0.01;
+    material.transmission = 0.94;
+    material.thickness = 1.9;
+    material.ior = 1.36;
+    material.attenuationDistance = 1.8;
   } else if (pieceTheme.kind === 'metal') {
     material.metalness = 0.94;
     material.roughness = 0.2;
@@ -1114,6 +1195,9 @@ function applyTheme() {
   squareDarkMaterial.needsUpdate = true;
 
   boardBase.material.color.setHex(theme.boardBase);
+  boardBase.material.map = makeSurfaceMap(theme.baseSurface || theme.darkSurface, theme.boardBase, theme.baseDetail || theme.detailDark);
+  applyPhysicalMaterial(boardBase.material, theme.baseMaterial || { roughness: 0.5, metalness: 0.15, clearcoat: 0.45, clearcoatRoughness: 0.14, transmission: 0, thickness: 0, transparent: false, opacity: 1 });
+  boardBase.material.needsUpdate = true;
   underGlow.material.color.setHex(theme.glow);
   keyLight.color.setHex(theme.keyLight);
   rimLight.color.setHex(theme.rimLight);

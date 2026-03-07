@@ -43,6 +43,14 @@ body {
     linear-gradient(180deg, #180b10, #050305);
 }
 
+:root[data-theme='crystal-atelier'] body {
+  background:
+    radial-gradient(circle at 16% 8%, rgba(255, 205, 123, 0.24), transparent 18%),
+    radial-gradient(circle at 76% 12%, rgba(173, 226, 255, 0.28), transparent 22%),
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.12), transparent 26%),
+    linear-gradient(180deg, #090914, #04050b);
+}
+
 button, strong, span, p, h1, h2 { user-select: none; }
 
 .shell {

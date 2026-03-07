@@ -126,6 +126,9 @@ test('glass marble chess supports responsive layout, PvE, special rules, and gam
   await clickControl(window, 'button[data-theme="jade-brass"]');
   await expect(window.locator('button[data-theme="jade-brass"]')).toHaveClass(/active/);
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().activeThemeKey)).toBe('jade-brass');
+  await clickControl(window, 'button[data-theme="crystal-atelier"]');
+  await expect(window.locator('button[data-theme="crystal-atelier"]')).toHaveClass(/active/);
+  await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().activeThemeKey)).toBe('crystal-atelier');
   await clickControl(window, 'button[data-theme="glass-marble"]');
   await expect.poll(() => window.evaluate(() => window.__chessDebug.getUiState().activeThemeKey)).toBe('glass-marble');
 
